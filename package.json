@@ -1,0 +1,26 @@
+{
+  "name": "chronly",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox --mv3",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox --mv3",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox --mv3",
+    "postinstall": "wxt prepare",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "svelte": "^5.56.8",
+    "wxt": "^0.21.3"
+  },
+  "devDependencies": {
+    "@wxt-dev/module-svelte": "^2.0.5",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,2 +1,6 @@
 .worktrees/
 .playwright-mcp/
+node_modules/
+.output/
+.wxt/
+*.local
