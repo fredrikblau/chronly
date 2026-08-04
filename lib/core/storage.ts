@@ -1,0 +1,123 @@
+import { browser } from 'wxt/browser'
+import type { SchedulableRecord, Settings, WorldClockEntry } from './types'
+import { DEFAULT_SETTINGS } from './types'
+
+export interface StorageBackend {
+  get<T>(key: string): Promise<T | undefined>
+  set<T>(key: string, value: T): Promise<void>
+  remove(key: string): Promise<void>
+}
+
+export function createMemoryStorageBackend(): StorageBackend {
+  const map = new Map<string, unknown>()
+  return {
+    async get<T>(key: string) {
+      return map.get(key) as T | undefined
+    },
+    async set<T>(key: string, value: T) {
+      map.set(key, value)
+    },
+    async remove(key: string) {
+      map.delete(key)
+    },
+  }
+}
+
+const RECORDS_KEY = 'records'
+const WORLD_CLOCKS_KEY = 'worldClocks'
+const SETTINGS_KEY = 'settings'
+
+export class RecordStore {
+  constructor(private backend: StorageBackend) {}
+
+  async getAll(): Promise<SchedulableRecord[]> {
+    const map = await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)
+    return map ? Object.values(map) : []
+  }
+
+  async get(id: string): Promise<SchedulableRecord | undefined> {
+    const map = await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)
+    return map?.[id]
+  }
+
+  async upsert(record: SchedulableRecord): Promise<void> {
+    const map = (await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)) ?? {}
+    map[record.id] = record
+    await this.backend.set(RECORDS_KEY, map)
+  }
+
+  async remove(id: string): Promise<void> {
+    const map = (await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)) ?? {}
+    delete map[id]
+    await this.backend.set(RECORDS_KEY, map)
+  }
+}
+
+export class WorldClockStore {
+  constructor(private backend: StorageBackend) {}
+
+  async getAll(): Promise<WorldClockEntry[]> {
+    const list = await this.backend.get<WorldClockEntry[]>(WORLD_CLOCKS_KEY)
+    return (list ?? []).slice().sort((a, b) => a.order - b.order)
+  }
+
+  async upsert(entry: WorldClockEntry): Promise<void> {
+    const list = (await this.backend.get<WorldClockEntry[]>(WORLD_CLOCKS_KEY)) ?? []
+    const idx = list.findIndex((e) => e.id === entry.id)
+    if (idx === -1) list.push(entry)
+    else list[idx] = entry
+    await this.backend.set(WORLD_CLOCKS_KEY, list)
+  }
+
+  async remove(id: string): Promise<void> {
+    const list = (await this.backend.get<WorldClockEntry[]>(WORLD_CLOCKS_KEY)) ?? []
+    await this.backend.set(
+      WORLD_CLOCKS_KEY,
+      list.filter((e) => e.id !== id),
+    )
+  }
+
+  async reorder(orderedIds: string[]): Promise<void> {
+    const list = (await this.backend.get<WorldClockEntry[]>(WORLD_CLOCKS_KEY)) ?? []
+    const byId = new Map(list.map((e) => [e.id, e]))
+    const reordered = orderedIds
+      .map((id, index) => {
+        const entry = byId.get(id)
+        return entry ? { ...entry, order: index } : undefined
+      })
+      .filter((e): e is WorldClockEntry => e !== undefined)
+    await this.backend.set(WORLD_CLOCKS_KEY, reordered)
+  }
+}
+
+export class SettingsStore {
+  constructor(private backend: StorageBackend) {}
+
+  async get(): Promise<Settings> {
+    const stored = await this.backend.get<Settings>(SETTINGS_KEY)
+    return { ...DEFAULT_SETTINGS, ...stored }
+  }
+
+  async update(patch: Partial<Settings>): Promise<Settings> {
+    const current = await this.get()
+    const next = { ...current, ...patch }
+    await this.backend.set(SETTINGS_KEY, next)
+    return next
+  }
+}
+
+export function createExtensionStorageBackend(area: 'local' | 'sync'): StorageBackend {
+  const storageArea = browser.storage[area]
+  return {
+    async get<T>(key: string) {
+      const result = await storageArea.get(key)
+      return result[key] as T | undefined
+    },
+    async set<T>(key: string, value: T) {
+      await storageArea.set({ [key]: value })
+    },
+    async remove(key: string) {
+      await storageArea.remove(key)
+    },
+  }
+}
