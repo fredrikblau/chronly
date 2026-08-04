@@ -12,7 +12,9 @@
     "zip:firefox": "wxt zip -b firefox --mv3",
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -20,7 +22,15 @@
     "wxt": "^0.21.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@webext-core/fake-browser": "^2.0.1",
     "@wxt-dev/module-svelte": "^2.0.5",
-    "typescript": "^7.0.2"
+    "eslint": "^10.8.0",
+    "eslint-plugin-svelte": "^3.22.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-svelte": "^4.1.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.66.0",
+    "vitest": "^4.1.10"
   }
 }
