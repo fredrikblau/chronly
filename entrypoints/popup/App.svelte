@@ -152,8 +152,11 @@
     padding: 0.875rem;
   }
 
+  /* Must beat the display rules on .clock-panel and .stacked below, which have
+     equal specificity and would otherwise win by source order and leave every
+     panel on screen at once. */
   [hidden] {
-    display: none;
+    display: none !important;
   }
 
   .clock-panel {
@@ -174,6 +177,14 @@
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+  }
+
+  /* Panels size inputs with width:100% plus their own padding and border, which
+     overflows the popup without this. */
+  :global(*),
+  :global(*::before),
+  :global(*::after) {
+    box-sizing: border-box;
   }
 
   :global(body) {

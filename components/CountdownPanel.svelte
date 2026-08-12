@@ -316,6 +316,21 @@
     border-radius: 0.75rem;
   }
 
+  /* Grid items default to min-width:auto, so the text input's intrinsic width
+     keeps the 1fr column from shrinking and the whole form overflows the card
+     at popup width. */
+  .new-timer > * {
+    min-width: 0;
+  }
+
+  .label-input {
+    width: 100%;
+  }
+
+  .presets {
+    grid-column: 1 / -1;
+  }
+
   .presets,
   .sound-row {
     grid-column: 1 / -1;
