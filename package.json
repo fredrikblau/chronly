@@ -23,10 +23,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/svelte": "^5.4.2",
     "@webext-core/fake-browser": "^2.0.1",
     "@wxt-dev/module-svelte": "^2.0.5",
     "eslint": "^10.8.0",
     "eslint-plugin-svelte": "^3.22.0",
+    "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
     "prettier-plugin-svelte": "^4.1.1",
     "typescript": "^6.0.3",

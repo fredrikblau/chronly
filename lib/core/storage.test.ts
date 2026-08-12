@@ -6,6 +6,7 @@ import {
   PomodoroStatsStore,
   RecordStore,
   SettingsStore,
+  watchStorageKey,
   WorldClockStore,
 } from './storage'
 import {
@@ -124,5 +125,34 @@ describe('PomodoroStatsStore', () => {
     await store.recordCompletedFocusSession(25 * 60_000)
     const stats = await store.recordCompletedFocusSession(25 * 60_000)
     expect(stats).toEqual({ totalFocusSessionsCompleted: 2, totalFocusMs: 50 * 60_000 })
+  })
+})
+
+describe('watchStorageKey', () => {
+  it('invokes the callback with the new value when the watched key changes', async () => {
+    fakeBrowser.reset()
+    const backend = createExtensionStorageBackend('local')
+    const seen: unknown[] = []
+    const unwatch = watchStorageKey<{ hello: string }>('greeting', (value) => seen.push(value))
+
+    await backend.set('greeting', { hello: 'world' })
+    // storage.onChanged fires asynchronously; flush microtasks.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(seen).toEqual([{ hello: 'world' }])
+    unwatch()
+  })
+
+  it('ignores changes to other keys', async () => {
+    fakeBrowser.reset()
+    const backend = createExtensionStorageBackend('local')
+    const seen: unknown[] = []
+    const unwatch = watchStorageKey('greeting', (value) => seen.push(value))
+
+    await backend.set('somethingElse', 1)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(seen).toEqual([])
+    unwatch()
   })
 })

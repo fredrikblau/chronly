@@ -141,3 +141,19 @@ export class PomodoroStatsStore {
     return next
   }
 }
+
+export function watchStorageKey<T>(
+  key: string,
+  onChange: (value: T | undefined) => void,
+): () => void {
+  const listener = (
+    changes: Record<string, { newValue?: unknown; oldValue?: unknown }>,
+    areaName: string,
+  ) => {
+    if (areaName !== 'local' && areaName !== 'sync') return
+    const change = changes[key]
+    if (change) onChange(change.newValue as T | undefined)
+  }
+  browser.storage.onChanged.addListener(listener)
+  return () => browser.storage.onChanged.removeListener(listener)
+}
