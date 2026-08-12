@@ -1,0 +1,140 @@
+import { fakeBrowser } from '@webext-core/fake-browser'
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createAlarm } from '../lib/core/scheduler'
+import { createExtensionStorageBackend, RecordStore } from '../lib/core/storage'
+import type { AlarmRecord, SchedulableRecord } from '../lib/core/types'
+import AlarmsPanel from './AlarmsPanel.svelte'
+
+// 2026-02-02 is a Monday in local time.
+const MONDAY_6AM = new Date(2026, 1, 2, 6, 0, 0).getTime()
+
+function seedStore() {
+  return new RecordStore(createExtensionStorageBackend('local'))
+}
+
+function onlyAlarm(stored: SchedulableRecord[]): AlarmRecord {
+  const [record] = stored
+  if (record?.kind !== 'alarm') throw new Error('expected exactly one alarm record')
+  return record
+}
+
+describe('AlarmsPanel', () => {
+  beforeEach(() => {
+    fakeBrowser.reset()
+    vi.restoreAllMocks()
+  })
+
+  it('lists an existing alarm with its time and schedule', async () => {
+    const store = seedStore()
+    await store.upsert(createAlarm('Wake up', new Date(2026, 1, 2, 7, 0).getTime(), MONDAY_6AM))
+
+    render(AlarmsPanel)
+
+    expect(await screen.findByText('Wake up')).toBeInTheDocument()
+    expect(screen.getByText('07:00')).toBeInTheDocument()
+    expect(screen.getByText('Once')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when there are no alarms', async () => {
+    render(AlarmsPanel)
+
+    expect(await screen.findByText(/no alarms yet/i)).toBeInTheDocument()
+  })
+
+  it('creates a new alarm from the form', async () => {
+    render(AlarmsPanel)
+
+    await fireEvent.input(screen.getByPlaceholderText('Label'), { target: { value: 'Standup' } })
+    await fireEvent.click(screen.getByText('Add alarm'))
+
+    expect(await screen.findByText('Standup')).toBeInTheDocument()
+    expect(screen.queryByText(/no alarms yet/i)).toBeNull()
+  })
+
+  it('persists the created alarm through the shared record store', async () => {
+    render(AlarmsPanel)
+
+    await fireEvent.input(screen.getByPlaceholderText('Label'), { target: { value: 'Standup' } })
+    await fireEvent.input(screen.getByLabelText('Time'), { target: { value: '09:30' } })
+    await fireEvent.click(screen.getByText('Add alarm'))
+
+    await screen.findByText('Standup')
+    const stored = await seedStore().getAll()
+    expect(stored).toHaveLength(1)
+    const alarm = onlyAlarm(stored)
+    expect(alarm.label).toBe('Standup')
+    const target = new Date(alarm.targetTimestamp)
+    expect(target.getHours()).toBe(9)
+    expect(target.getMinutes()).toBe(30)
+  })
+
+  it('falls back to a default label when none is typed', async () => {
+    render(AlarmsPanel)
+
+    await fireEvent.click(screen.getByText('Add alarm'))
+
+    expect(await screen.findByText('Alarm')).toBeInTheDocument()
+  })
+
+  it('records the selected repeat days and shows them on the alarm', async () => {
+    render(AlarmsPanel)
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Monday' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Wednesday' }))
+    await fireEvent.click(screen.getByText('Add alarm'))
+
+    expect(await screen.findByText('Mon, Wed')).toBeInTheDocument()
+    const alarm = onlyAlarm(await seedStore().getAll())
+    expect(alarm.recurrence?.days).toEqual([1, 3])
+  })
+
+  it('exposes day toggles as pressable buttons and clears them after adding', async () => {
+    render(AlarmsPanel)
+
+    const monday = screen.getByRole('button', { name: 'Monday' })
+    expect(monday).toHaveAttribute('aria-pressed', 'false')
+
+    await fireEvent.click(monday)
+    expect(monday).toHaveAttribute('aria-pressed', 'true')
+
+    await fireEvent.click(monday)
+    expect(monday).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('deletes an alarm', async () => {
+    const store = seedStore()
+    await store.upsert(createAlarm('Wake up', MONDAY_6AM, MONDAY_6AM))
+
+    render(AlarmsPanel)
+    await screen.findByText('Wake up')
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete alarm Wake up' }))
+
+    await waitFor(() => expect(screen.queryByText('Wake up')).toBeNull())
+    expect(await seedStore().getAll()).toEqual([])
+  })
+
+  it('marks a snoozed alarm', async () => {
+    const store = seedStore()
+    const alarm = createAlarm('Wake up', MONDAY_6AM, MONDAY_6AM)
+    await store.upsert({ ...alarm, snoozedUntil: Date.now() + 300_000 })
+
+    render(AlarmsPanel)
+
+    expect(await screen.findByText('Snoozed')).toBeInTheDocument()
+  })
+
+  it('previews the alarm without saving it when Test is pressed', async () => {
+    const create = vi.spyOn(fakeBrowser.notifications, 'create').mockResolvedValue(undefined)
+
+    render(AlarmsPanel)
+    await fireEvent.input(screen.getByPlaceholderText('Label'), { target: { value: 'Standup' } })
+    await fireEvent.click(screen.getByRole('button', { name: /test/i }))
+
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    const [, options] = create.mock.calls[0] ?? []
+    expect(options).toMatchObject({ title: 'Standup' })
+    expect(await seedStore().getAll()).toEqual([])
+  })
+})

@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser'
-import type { PomodoroStats, SchedulableRecord, Settings, WorldClockEntry } from './types'
-import { DEFAULT_POMODORO_STATS, DEFAULT_SETTINGS } from './types'
+import type { PomodoroStats, SchedulableRecord, Settings, StopwatchState, WorldClockEntry } from './types'
+import { DEFAULT_POMODORO_STATS, DEFAULT_SETTINGS, DEFAULT_STOPWATCH } from './types'
 
 export interface StorageBackend {
   get<T>(key: string): Promise<T | undefined>
@@ -156,4 +156,24 @@ export function watchStorageKey<T>(
   }
   browser.storage.onChanged.addListener(listener)
   return () => browser.storage.onChanged.removeListener(listener)
+}
+
+const STOPWATCH_KEY = 'stopwatch'
+
+/**
+ * A single object under its own key, like SettingsStore — there is only ever one
+ * stopwatch, and it is not a SchedulableRecord, so it never enters the records
+ * map the background worker scans.
+ */
+export class StopwatchStore {
+  constructor(private backend: StorageBackend) {}
+
+  async get(): Promise<StopwatchState> {
+    const stored = await this.backend.get<StopwatchState>(STOPWATCH_KEY)
+    return stored ?? DEFAULT_STOPWATCH
+  }
+
+  async set(state: StopwatchState): Promise<void> {
+    await this.backend.set(STOPWATCH_KEY, state)
+  }
 }

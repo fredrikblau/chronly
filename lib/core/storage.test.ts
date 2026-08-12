@@ -6,13 +6,16 @@ import {
   PomodoroStatsStore,
   RecordStore,
   SettingsStore,
+  StopwatchStore,
   watchStorageKey,
   WorldClockStore,
 } from './storage'
 import {
   DEFAULT_POMODORO_STATS,
   DEFAULT_SETTINGS,
+  DEFAULT_STOPWATCH,
   type AlarmRecord,
+  type StopwatchState,
   type WorldClockEntry,
 } from './types'
 
@@ -154,5 +157,40 @@ describe('watchStorageKey', () => {
 
     expect(seen).toEqual([])
     unwatch()
+  })
+})
+
+describe('StopwatchStore', () => {
+  it('returns the default idle state when nothing is stored', async () => {
+    const store = new StopwatchStore(createMemoryStorageBackend())
+    expect(await store.get()).toEqual(DEFAULT_STOPWATCH)
+  })
+
+  it('round-trips a set state', async () => {
+    const store = new StopwatchStore(createMemoryStorageBackend())
+    const state: StopwatchState = {
+      status: 'running',
+      startedAt: 1000,
+      elapsedMsBeforeStart: 0,
+      laps: [],
+    }
+    await store.set(state)
+    expect(await store.get()).toEqual(state)
+  })
+
+  it('keeps a running state across store instances sharing a backend', async () => {
+    const backend = createMemoryStorageBackend()
+    await new StopwatchStore(backend).set({
+      status: 'paused',
+      startedAt: null,
+      elapsedMsBeforeStart: 4200,
+      laps: [1500, 1000],
+    })
+    expect(await new StopwatchStore(backend).get()).toEqual({
+      status: 'paused',
+      startedAt: null,
+      elapsedMsBeforeStart: 4200,
+      laps: [1500, 1000],
+    })
   })
 })

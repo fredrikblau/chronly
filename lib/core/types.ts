@@ -95,3 +95,26 @@ export const DEFAULT_POMODORO_STATS: PomodoroStats = {
   totalFocusSessionsCompleted: 0,
   totalFocusMs: 0,
 }
+
+/**
+ * The stopwatch counts up and never comes due, so it is not a SchedulableRecord
+ * and the background worker never touches it. It still stores absolute epoch-ms
+ * timestamps rather than a running counter: the popup is destroyed every time it
+ * closes, and the elapsed time has to survive that.
+ *
+ * `laps` holds split times — the duration of each lap, not the running total —
+ * newest first.
+ */
+export interface StopwatchState {
+  status: 'idle' | 'running' | 'paused'
+  startedAt: number | null
+  elapsedMsBeforeStart: number
+  laps: number[]
+}
+
+export const DEFAULT_STOPWATCH: StopwatchState = {
+  status: 'idle',
+  startedAt: null,
+  elapsedMsBeforeStart: 0,
+  laps: [],
+}
