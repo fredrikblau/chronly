@@ -9,9 +9,14 @@ export function generateId(prefix: string): string {
 
 export const SNOOZE_MS = 5 * 60_000
 
-/** A snoozed alarm is due at its snooze time; everything else at its target. */
+/**
+ * A snoozed alarm is due at its snooze time; everything else at its target.
+ * `??` rather than a `!== null` check on purpose: a record written before
+ * `snoozedUntil` existed has it undefined, and treating that as a snooze time
+ * would return undefined here and stop the alarm firing forever.
+ */
 export function effectiveDueTime(record: SchedulableRecord): number {
-  if (record.kind === 'alarm' && record.snoozedUntil !== null) return record.snoozedUntil
+  if (record.kind === 'alarm') return record.snoozedUntil ?? record.targetTimestamp
   return record.targetTimestamp
 }
 

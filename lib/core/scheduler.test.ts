@@ -4,6 +4,7 @@ import {
   computeDueRecords,
   computeNextAlarmOccurrence,
   createAlarm,
+  effectiveDueTime,
   createCountdown,
   createPomodoro,
   isDue,
@@ -144,5 +145,16 @@ describe('snoozeAlarm', () => {
     const alarm = snoozeAlarm(createAlarm('Wake up', NOW, NOW), NOW)
     const fired = reconcileFiredRecord(alarm, NOW + 5 * 60_000)
     expect(fired.kind === 'alarm' && fired.snoozedUntil).toBeNull()
+  })
+})
+
+describe('effectiveDueTime', () => {
+  it('still fires an alarm stored before snoozedUntil existed', () => {
+    const alarm = createAlarm('Legacy', NOW, NOW)
+    // Simulate a record written by an earlier version, or by hand.
+    const legacy = { ...alarm } as Partial<AlarmRecord> as AlarmRecord
+    delete (legacy as { snoozedUntil?: number | null }).snoozedUntil
+    expect(effectiveDueTime(legacy)).toBe(NOW)
+    expect(isDue(legacy, NOW + 1)).toBe(true)
   })
 })
