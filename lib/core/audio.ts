@@ -149,8 +149,10 @@ export async function playAlarmSound(soundId: string, volume: number): Promise<v
     try {
       await ensureOffscreenDocument()
     } catch (error) {
-      console.warn('[chronly] could not open the offscreen audio document', error)
-      return
+      // `getContexts` is an async IPC, so a stale zero-context reply can still
+      // produce a duplicate createDocument. That means the document exists —
+      // fall through and send rather than dropping the sound.
+      console.warn('[chronly] offscreen document may already exist', error)
     }
     await sendToOffscreen(buildPlaySoundMessage(soundId, volume))
     return
