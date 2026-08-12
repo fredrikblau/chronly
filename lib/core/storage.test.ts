@@ -3,11 +3,17 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createExtensionStorageBackend,
   createMemoryStorageBackend,
+  PomodoroStatsStore,
   RecordStore,
   SettingsStore,
   WorldClockStore,
 } from './storage'
-import { DEFAULT_SETTINGS, type AlarmRecord, type WorldClockEntry } from './types'
+import {
+  DEFAULT_POMODORO_STATS,
+  DEFAULT_SETTINGS,
+  type AlarmRecord,
+  type WorldClockEntry,
+} from './types'
 
 const sampleAlarm: AlarmRecord = {
   id: 'alarm-1',
@@ -103,5 +109,19 @@ describe('createExtensionStorageBackend', () => {
     await backend.set('records', { 'alarm-1': sampleAlarm })
     await backend.remove('records')
     expect(await backend.get('records')).toBeUndefined()
+  })
+})
+
+describe('PomodoroStatsStore', () => {
+  it('starts at zero', async () => {
+    const store = new PomodoroStatsStore(createMemoryStorageBackend())
+    expect(await store.get()).toEqual(DEFAULT_POMODORO_STATS)
+  })
+
+  it('accumulates completed focus sessions', async () => {
+    const store = new PomodoroStatsStore(createMemoryStorageBackend())
+    await store.recordCompletedFocusSession(25 * 60_000)
+    const stats = await store.recordCompletedFocusSession(25 * 60_000)
+    expect(stats).toEqual({ totalFocusSessionsCompleted: 2, totalFocusMs: 50 * 60_000 })
   })
 })

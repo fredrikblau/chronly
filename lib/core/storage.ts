@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser'
-import type { SchedulableRecord, Settings, WorldClockEntry } from './types'
-import { DEFAULT_SETTINGS } from './types'
+import type { PomodoroStats, SchedulableRecord, Settings, WorldClockEntry } from './types'
+import { DEFAULT_POMODORO_STATS, DEFAULT_SETTINGS } from './types'
 
 export interface StorageBackend {
   get<T>(key: string): Promise<T | undefined>
@@ -26,6 +26,7 @@ export function createMemoryStorageBackend(): StorageBackend {
 const RECORDS_KEY = 'records'
 const WORLD_CLOCKS_KEY = 'worldClocks'
 const SETTINGS_KEY = 'settings'
+const POMODORO_STATS_KEY = 'pomodoroStats'
 
 export class RecordStore {
   constructor(private backend: StorageBackend) {}
@@ -119,5 +120,24 @@ export function createExtensionStorageBackend(area: 'local' | 'sync'): StorageBa
     async remove(key: string) {
       await storageArea.remove(key)
     },
+  }
+}
+
+export class PomodoroStatsStore {
+  constructor(private backend: StorageBackend) {}
+
+  async get(): Promise<PomodoroStats> {
+    const stored = await this.backend.get<PomodoroStats>(POMODORO_STATS_KEY)
+    return stored ?? DEFAULT_POMODORO_STATS
+  }
+
+  async recordCompletedFocusSession(focusMs: number): Promise<PomodoroStats> {
+    const current = await this.get()
+    const next: PomodoroStats = {
+      totalFocusSessionsCompleted: current.totalFocusSessionsCompleted + 1,
+      totalFocusMs: current.totalFocusMs + focusMs,
+    }
+    await this.backend.set(POMODORO_STATS_KEY, next)
+    return next
   }
 }

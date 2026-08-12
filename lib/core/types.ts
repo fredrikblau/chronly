@@ -81,3 +81,13 @@ export const DEFAULT_SETTINGS: Settings = {
   reducedMotion: false,
   background: { type: 'solid', value: '#0b0b0f', accentColor: '#8b7cf6' },
 }
+
+export interface PomodoroStats {
+  totalFocusSessionsCompleted: number
+  totalFocusMs: number
+}
+
+export const DEFAULT_POMODORO_STATS: PomodoroStats = {
+  totalFocusSessionsCompleted: 0,
+  totalFocusMs: 0,
+}
