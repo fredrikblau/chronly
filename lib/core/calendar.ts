@@ -21,7 +21,7 @@ function escapeIcsText(value: string): string {
     .replace(/\\/g, '\\\\')
     .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
-    .replace(/\r?\n/g, '\\n')
+    .replace(/\r\n|\r|\n/g, '\\n')
 }
 
 export function buildGoogleCalendarLink(event: CalendarEvent): string {
@@ -49,5 +49,5 @@ export function buildIcs(event: CalendarEvent): string {
     'END:VEVENT',
     'END:VCALENDAR',
   ].filter((line): line is string => line !== undefined)
-  return lines.join('\r\n')
+  return lines.join('\r\n') + '\r\n'
 }

@@ -2,6 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <!-- Chrome-only: Firefox has no offscreen API and plays audio directly
+         from its background event page. -->
+    <meta name="manifest.include" content="['chrome']" />
     <title>Chronly audio</title>
   </head>
   <body>

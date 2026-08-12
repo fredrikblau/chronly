@@ -40,7 +40,14 @@ describe('buildIcs', () => {
     expect(ics).toContain('DESCRIPTION:Line one\\nLine two')
   })
 
-  it('separates lines with CRLF as required by RFC 5545', () => {
-    expect(buildIcs(event).split('\r\n')[0]).toBe('BEGIN:VCALENDAR')
+  it('escapes a bare carriage return as a line break too', () => {
+    const ics = buildIcs({ ...event, description: 'One\rTwo' })
+    expect(ics).toContain('DESCRIPTION:One\\nTwo')
+  })
+
+  it('separates lines with CRLF and terminates the object', () => {
+    const ics = buildIcs(event)
+    expect(ics.split('\r\n')[0]).toBe('BEGIN:VCALENDAR')
+    expect(ics.endsWith('END:VCALENDAR\r\n')).toBe(true)
   })
 })
