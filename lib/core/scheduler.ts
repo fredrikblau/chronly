@@ -7,10 +7,22 @@ export function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${idCounter}`
 }
 
+export const SNOOZE_MS = 5 * 60_000
+
+/** A snoozed alarm is due at its snooze time; everything else at its target. */
+export function effectiveDueTime(record: SchedulableRecord): number {
+  if (record.kind === 'alarm' && record.snoozedUntil !== null) return record.snoozedUntil
+  return record.targetTimestamp
+}
+
 export function isDue(record: SchedulableRecord, now: number): boolean {
   if (record.notified) return false
   if ((record.kind === 'countdown' || record.kind === 'pomodoro') && record.status !== 'running') return false
-  return record.targetTimestamp <= now
+  return effectiveDueTime(record) <= now
+}
+
+export function snoozeAlarm(record: AlarmRecord, now: number, snoozeMs: number = SNOOZE_MS): AlarmRecord {
+  return { ...record, snoozedUntil: now + snoozeMs, notified: false, updatedAt: now }
 }
 
 export function computeDueRecords(records: SchedulableRecord[], now: number): SchedulableRecord[] {
@@ -59,9 +71,12 @@ export function advancePomodoroPhase(record: PomodoroRecord, now: number): Pomod
 export function reconcileFiredRecord(record: SchedulableRecord, now: number): SchedulableRecord {
   const notified = markNotified(record, now)
   if (notified.kind === 'alarm') {
-    const next = computeNextAlarmOccurrence(notified, now)
-    if (next === null) return notified // one-off: stays in storage, notified=true, until dismissed or snoozed
-    return { ...notified, targetTimestamp: next, notified: false, updatedAt: now }
+    // A snooze that has now fired is spent; the recurrence is still computed
+    // from the untouched targetTimestamp.
+    const cleared: AlarmRecord = { ...notified, snoozedUntil: null }
+    const next = computeNextAlarmOccurrence(cleared, now)
+    if (next === null) return cleared // one-off: stays in storage, notified=true, until dismissed or snoozed
+    return { ...cleared, targetTimestamp: next, notified: false, updatedAt: now }
   }
   if (notified.kind === 'countdown') {
     return { ...notified, status: 'completed', updatedAt: now }
@@ -105,6 +120,7 @@ export function createAlarm(
     targetTimestamp,
     recurrence,
     fullScreenTakeover: opts.fullScreenTakeover ?? false,
+    snoozedUntil: null,
     soundId: opts.soundId ?? 'default',
     volume: opts.volume ?? 0.8,
     notified: false,

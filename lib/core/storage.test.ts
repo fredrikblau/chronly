@@ -22,6 +22,7 @@ const sampleAlarm: AlarmRecord = {
   targetTimestamp: 1000,
   recurrence: null,
   fullScreenTakeover: false,
+  snoozedUntil: null,
   soundId: 'default',
   volume: 0.8,
   notified: false,

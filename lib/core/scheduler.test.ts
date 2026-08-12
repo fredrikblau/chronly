@@ -11,6 +11,7 @@ import {
   pauseRecord,
   reconcileFiredRecord,
   resumeRecord,
+  snoozeAlarm,
 } from './scheduler'
 import type { AlarmRecord, PomodoroConfig, PomodoroRecord } from './types'
 
@@ -121,5 +122,27 @@ describe('pauseRecord / resumeRecord', () => {
     const resumed = resumeRecord(paused, NOW + 100_000)
     expect(resumed.status).toBe('running')
     expect(resumed.targetTimestamp).toBe(NOW + 100_000 + 7000)
+  })
+})
+
+describe('snoozeAlarm', () => {
+  it('makes the alarm due again after the snooze window, not before', () => {
+    const alarm = snoozeAlarm(createAlarm('Wake up', NOW, NOW), NOW)
+    expect(isDue(alarm, NOW + 4 * 60_000)).toBe(false)
+    expect(isDue(alarm, NOW + 5 * 60_000)).toBe(true)
+  })
+
+  it('leaves targetTimestamp alone so recurrence stays anchored', () => {
+    const sevenAm = new Date(2026, 1, 2, 7, 0, 0, 0).getTime()
+    const alarm = createAlarm('Standup', sevenAm, sevenAm, { days: [1, 2, 3, 4, 5] })
+    const snoozed = snoozeAlarm(alarm, sevenAm)
+    expect(snoozed.targetTimestamp).toBe(alarm.targetTimestamp)
+    expect(new Date(computeNextAlarmOccurrence(snoozed, sevenAm)!).getMinutes()).toBe(0)
+  })
+
+  it('clears the snooze once the snoozed alarm fires', () => {
+    const alarm = snoozeAlarm(createAlarm('Wake up', NOW, NOW), NOW)
+    const fired = reconcileFiredRecord(alarm, NOW + 5 * 60_000)
+    expect(fired.kind === 'alarm' && fired.snoozedUntil).toBeNull()
   })
 })

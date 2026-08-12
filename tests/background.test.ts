@@ -1,5 +1,6 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { playAlarmSound } from '../lib/core/audio'
 import { createAlarm, createCountdown, createPomodoro } from '../lib/core/scheduler'
 import {
   createExtensionStorageBackend,
@@ -16,11 +17,21 @@ import {
   TICK_PERIOD_MINUTES,
 } from '../entrypoints/background'
 
+// Audio needs a real AudioContext/offscreen document; the unit under test here
+// is the reconciliation loop's handling of it, not playback itself.
+vi.mock('../lib/core/audio', () => ({
+  playAlarmSound: vi.fn(async () => {}),
+}))
+
 const NOW = 1_770_000_000_000
 
 function newStore(): RecordStore {
   return new RecordStore(createExtensionStorageBackend('local'))
 }
+
+beforeEach(() => {
+  vi.mocked(playAlarmSound).mockReset().mockResolvedValue(undefined)
+})
 
 describe('ensureTickAlarm', () => {
   beforeEach(() => {
@@ -80,21 +91,54 @@ describe('reconcileDueRecords', () => {
     expect(Object.keys(await fakeBrowser.notifications.getAll())).toHaveLength(0)
   })
 
-  it('still notifies every due record when one record’s sound fails', async () => {
+  it('completes the tick even when the sound never finishes playing', async () => {
+    // The decisive test for the deliberate non-await: a sound that never
+    // settles. Awaiting it would hang this tick forever, and unlike a rejection
+    // that outcome cannot be masked by the per-record try/catch.
+    vi.mocked(playAlarmSound).mockReturnValue(new Promise<void>(() => {}))
     const store = newStore()
     const first = createAlarm('First', NOW, NOW)
     const second = createAlarm('Second', NOW, NOW)
     await store.upsert(first)
     await store.upsert(second)
-    // Audio is the redundant half of the firing path; a failure in it must not
-    // cost any notification, including for records later in the same tick.
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await reconcileDueRecords(store, NOW + 1)
 
     const ids = Object.keys(await fakeBrowser.notifications.getAll())
     expect(ids).toContain(`chronly-alarm-${first.id}`)
     expect(ids).toContain(`chronly-alarm-${second.id}`)
+  }, 2000)
+
+  it('marks a record fired even when its sound rejects', async () => {
+    // Awaiting the sound would throw before the record was advanced, leaving it
+    // due and re-firing it on the next tick.
+    vi.mocked(playAlarmSound).mockRejectedValue(new Error('no audio device'))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+
+    await reconcileDueRecords(store, NOW + 1)
+
+    expect((await store.get(alarm.id))?.notified).toBe(true)
+  })
+
+  it('still fires later records when one record’s notification throws', async () => {
+    const store = newStore()
+    const first = createAlarm('First', NOW, NOW)
+    const second = createAlarm('Second', NOW, NOW)
+    await store.upsert(first)
+    await store.upsert(second)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // spyOn returns the already-installed spy if a previous test made one, so
+    // clear its history rather than trusting a fresh count.
+    const create = vi.spyOn(fakeBrowser.notifications, 'create')
+    create.mockClear()
+    create.mockRejectedValueOnce(new Error('icon download failed'))
+
+    await expect(reconcileDueRecords(store, NOW + 1)).resolves.toBeUndefined()
+
+    expect(create).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -113,7 +157,52 @@ describe('handleNotificationButton', () => {
 
     const updated = await store.get(alarm.id)
     expect(updated?.notified).toBe(false)
-    expect(updated?.kind === 'alarm' && updated.targetTimestamp).toBe(NOW + 5000 + 5 * 60_000)
+    expect(updated).toMatchObject({ snoozedUntil: NOW + 5000 + 5 * 60_000 })
+  })
+
+  it('snoozing a recurring alarm leaves its recurrence time untouched', async () => {
+    const store = newStore()
+    const sevenAm = new Date(2026, 1, 2, 7, 0, 0, 0).getTime()
+    const alarm = createAlarm('Standup', sevenAm, sevenAm, { days: [1, 2, 3, 4, 5] })
+    await store.upsert(alarm)
+    await reconcileDueRecords(store, sevenAm + 1)
+
+    await handleNotificationButton(store, `chronly-alarm-${alarm.id}`, 0, sevenAm + 1)
+
+    // Writing the snooze into targetTimestamp would shift every future
+    // occurrence to 07:05, then 07:10, and so on.
+    const updated = await store.get(alarm.id)
+    expect(updated?.kind === 'alarm' && new Date(updated.targetTimestamp).getMinutes()).toBe(0)
+  })
+
+  it('does not delete an alarm when the snooze clears its notification', async () => {
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+    await reconcileDueRecords(store, NOW + 1)
+
+    await handleNotificationButton(store, `chronly-alarm-${alarm.id}`, 0, NOW + 5000)
+    // Clearing a notification fires onClosed, which must not treat a freshly
+    // snoozed alarm as acknowledged.
+    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`)
+
+    expect(await store.get(alarm.id)).toBeDefined()
+  })
+
+  it('pauses a pomodoro from its notification button', async () => {
+    const store = newStore()
+    const pomodoro = createPomodoro(
+      'Deep work',
+      { focusMs: 1000, shortBreakMs: 500, longBreakMs: 2000, cyclesBeforeLongBreak: 4 },
+      NOW,
+    )
+    await store.upsert(pomodoro)
+    await reconcileDueRecords(store, NOW + 1000)
+
+    await handleNotificationButton(store, `chronly-pomodoro-${pomodoro.id}`, 0, NOW + 1001)
+
+    const updated = await store.get(pomodoro.id)
+    expect(updated?.kind === 'pomodoro' && updated.status).toBe('paused')
   })
 
   it('removes a dismissed one-off alarm entirely', async () => {

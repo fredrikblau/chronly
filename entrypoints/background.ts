@@ -1,7 +1,12 @@
 import { browser } from 'wxt/browser'
 import { playAlarmSound } from '../lib/core/audio'
 import { buildNotificationSpec, showNotification } from '../lib/core/notifications'
-import { computeDueRecords, pauseRecord, reconcileFiredRecord } from '../lib/core/scheduler'
+import {
+  computeDueRecords,
+  pauseRecord,
+  reconcileFiredRecord,
+  snoozeAlarm,
+} from '../lib/core/scheduler'
 import {
   createExtensionStorageBackend,
   PomodoroStatsStore,
@@ -12,11 +17,11 @@ import type { SchedulableRecord } from '../lib/core/types'
 export const TICK_ALARM_NAME = 'tick'
 export const TICK_PERIOD_MINUTES = 0.5
 
-const SNOOZE_MS = 5 * 60_000
-
 export async function ensureTickAlarm(): Promise<void> {
   const existing = await browser.alarms.get(TICK_ALARM_NAME)
-  if (existing) return
+  // Recreate an alarm left behind at a different period by an older version,
+  // otherwise it would keep ticking at the stale rate forever.
+  if (existing?.periodInMinutes === TICK_PERIOD_MINUTES) return
   await browser.alarms.create(TICK_ALARM_NAME, { periodInMinutes: TICK_PERIOD_MINUTES })
 }
 
@@ -37,11 +42,19 @@ export async function reconcileDueRecords(store: RecordStore, now: number): Prom
   const statsStore = new PomodoroStatsStore(createExtensionStorageBackend('local'))
   const due = computeDueRecords(await store.getAll(), now)
   for (const record of due) {
-    await fireRecord(record)
-    if (record.kind === 'pomodoro' && record.phase === 'focus') {
-      await statsStore.recordCompletedFocusSession(record.config.focusMs)
+    try {
+      await fireRecord(record)
+      // Advance the record before counting the session. If the worker dies
+      // between the two writes this under-counts by one rather than leaving
+      // the record due, re-firing it next tick and counting it twice.
+      await store.upsert(reconcileFiredRecord(record, now))
+      if (record.kind === 'pomodoro' && record.phase === 'focus') {
+        await statsStore.recordCompletedFocusSession(record.config.focusMs)
+      }
+    } catch (error) {
+      // One bad record must not strand the rest of this tick.
+      console.warn('[chronly] could not fire record', record.id, error)
     }
-    await store.upsert(reconcileFiredRecord(record, now))
   }
 }
 
@@ -68,12 +81,7 @@ export async function handleNotificationButton(
   if (!record) return
 
   if (record.kind === 'alarm' && buttonIndex === 0) {
-    await store.upsert({
-      ...record,
-      targetTimestamp: now + SNOOZE_MS,
-      notified: false,
-      updatedAt: now,
-    })
+    await store.upsert(snoozeAlarm(record, now))
     await browser.notifications.clear(notificationId)
     return
   }
@@ -99,11 +107,20 @@ export async function handleNotificationClosed(
   notificationId: string,
 ): Promise<void> {
   const record = await store.get(extractRecordId(notificationId))
-  if (record && isTransient(record)) await store.remove(record.id)
+  // `notified` is the guard that makes this safe to call from the snooze path:
+  // snoozing clears it and then clears the notification, which fires onClosed.
+  // Without this check that close would delete the alarm the user just snoozed.
+  if (record?.notified && isTransient(record)) await store.remove(record.id)
 }
 
 export default defineBackground(() => {
   const store = new RecordStore(createExtensionStorageBackend('local'))
+
+  // The tick alarm comes first and unconditionally. Everything below is a
+  // listener registration, and a throw in any one of them would abort this
+  // function and silently orphan every registration after it — including this
+  // one, which is what keeps alarms firing at all.
+  void ensureTickAlarm()
 
   // Every listener is registered synchronously at the top level: a worker woken
   // specifically to deliver one of these events would otherwise miss it.
@@ -112,9 +129,21 @@ export default defineBackground(() => {
     void reconcileDueRecords(store, Date.now())
   })
 
-  browser.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
-    void handleNotificationButton(store, notificationId, buttonIndex, Date.now())
-  })
+  // Firefox has no notification buttons and does not define this event at all;
+  // touching it there throws. Its dismissal path is onClosed instead.
+  if (browser.notifications.onButtonClicked) {
+    browser.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+      void handleNotificationButton(store, notificationId, buttonIndex, Date.now())
+    })
+  }
+
+  if (browser.notifications.onClicked) {
+    // Clicking the body acknowledges the notification. Clearing it routes
+    // through onClosed, which owns the cleanup.
+    browser.notifications.onClicked.addListener((notificationId) => {
+      void browser.notifications.clear(notificationId)
+    })
+  }
 
   browser.notifications.onClosed.addListener((notificationId) => {
     void handleNotificationClosed(store, notificationId)
@@ -127,7 +156,4 @@ export default defineBackground(() => {
   browser.runtime.onStartup.addListener(() => {
     void ensureTickAlarm()
   })
-
-  // Covers a worker restarting mid-session without a fresh onInstalled/onStartup.
-  void ensureTickAlarm()
 })

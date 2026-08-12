@@ -19,6 +19,10 @@ export interface AlarmRecord extends BaseRecord {
   targetTimestamp: number
   recurrence: AlarmRecurrence | null // null = one-off
   fullScreenTakeover: boolean
+  // Snoozing must not overwrite targetTimestamp: a recurring alarm re-derives
+  // its time of day from it, so writing the snooze time there would shift
+  // every future occurrence by the snooze length, compounding each time.
+  snoozedUntil: number | null
 }
 
 export interface CountdownRecord extends BaseRecord {
