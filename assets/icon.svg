@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1a24" />
+      <stop offset="1" stop-color="#0b0b0f" />
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a78bfa" />
+      <stop offset="1" stop-color="#7c5cf0" />
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="28" fill="url(#bg)" />
+  <circle cx="64" cy="64" r="42" fill="none" stroke="url(#ring)" stroke-width="9" />
+
+  <!-- Hands sit at 10:10: the most legible pose at 16px, and it keeps both
+       hands clear of the ring stroke. -->
+  <g stroke="#ffffff" stroke-linecap="round">
+    <line x1="64" y1="64" x2="64" y2="38" stroke-width="9" />
+    <line x1="64" y1="64" x2="86" y2="74" stroke-width="9" />
+  </g>
+  <circle cx="64" cy="64" r="5" fill="#0b0b0f" />
+</svg>
