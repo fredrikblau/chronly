@@ -7,6 +7,7 @@
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox --mv3",
     "preview:popup": "vite --config harness/vite.config.ts",
+    "preview:newtab": "vite --config harness/vite.config.ts --open /newtab.html",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox --mv3",
     "zip": "wxt zip",
