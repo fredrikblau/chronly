@@ -7,6 +7,7 @@
     type PomodoroRecord,
     type PomodoroStats,
   } from '../lib/core/types'
+  import { downloadIcs, openGoogleCalendarLink } from '../lib/ui/calendarAction'
   import { createNowStore } from '../lib/ui/now'
   import { recordActions, records } from '../lib/ui/records'
 
@@ -136,6 +137,31 @@
     return record.cycleCount > 0 ? ((record.cycleCount - 1) % perSet) + 1 : 0
   }
 
+  /**
+   * Blocks out the rest of the current phase. A paused record's
+   * `targetTimestamp` is stale, so the span comes from the remaining time the
+   * dial is showing, and never collapses to a zero-length event.
+   */
+  function phaseEvent(record: PomodoroRecord) {
+    const at = Date.now()
+    return {
+      title: `${record.label} — ${PHASE_LABELS[record.phase]}`,
+      start: new Date(at),
+      end: new Date(at + Math.max(remainingMs(record, at), 60_000)),
+      description: 'Chronly pomodoro session',
+    }
+  }
+
+  function addToGoogleCalendar(record: PomodoroRecord) {
+    const { title, start, end, description } = phaseEvent(record)
+    openGoogleCalendarLink(title, start, end, description)
+  }
+
+  function saveIcs(record: PomodoroRecord) {
+    const { title, start, end, description } = phaseEvent(record)
+    downloadIcs(title, start, end, description)
+  }
+
   const RING_RADIUS = 46
   const RING_LENGTH = 2 * Math.PI * RING_RADIUS
 </script>
@@ -202,6 +228,25 @@
           {active.status === 'running' ? 'Pause' : 'Resume'}
         </button>
         <button type="button" class="ghost" onclick={() => void recordActions.remove(active.id)}> Stop </button>
+      </div>
+
+      <div class="calendarRow" role="group" aria-label="Add this phase to a calendar">
+        <button
+          type="button"
+          class="ghost"
+          aria-label={`Add ${PHASE_LABELS[active.phase]} end to Google Calendar`}
+          onclick={() => addToGoogleCalendar(active)}
+        >
+          Google Calendar
+        </button>
+        <button
+          type="button"
+          class="ghost"
+          aria-label={`Download the .ics calendar file for ${PHASE_LABELS[active.phase]} end`}
+          onclick={() => saveIcs(active)}
+        >
+          Download .ics
+        </button>
       </div>
     </div>
   {:else}
@@ -445,6 +490,22 @@
 
   .controls button {
     flex: 1;
+  }
+
+  .calendarRow {
+    display: flex;
+    gap: 0.4rem;
+    width: 100%;
+  }
+
+  .calendarRow button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.38rem 0.5rem;
+    overflow: hidden;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Setup view */

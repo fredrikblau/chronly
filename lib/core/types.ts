@@ -18,6 +18,9 @@ export interface AlarmRecord extends BaseRecord {
   kind: 'alarm'
   targetTimestamp: number
   recurrence: AlarmRecurrence | null // null = one-off
+  // Reserved for the full-screen takeover on the roadmap. Nothing acts on it
+  // yet, so the alarm form deliberately does not offer a control for it — a
+  // toggle that silently does nothing is worse than no toggle.
   fullScreenTakeover: boolean
   // Snoozing must not overwrite targetTimestamp: a recurring alarm re-derives
   // its time of day from it, so writing the snooze time there would shift

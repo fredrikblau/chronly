@@ -1,6 +1,6 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPomodoro } from '../lib/core/scheduler'
 import { createExtensionStorageBackend, RecordStore } from '../lib/core/storage'
 import type { PomodoroConfig, PomodoroRecord } from '../lib/core/types'
@@ -11,6 +11,17 @@ const CONFIG: PomodoroConfig = {
   shortBreakMs: 5 * 60_000,
   longBreakMs: 15 * 60_000,
   cyclesBeforeLongBreak: 4,
+}
+
+/** Reads back the `start/end` pair of basic-format UTC stamps a link carries. */
+function icsRange(dates: string | null): [number, number] {
+  const stamps = /^(\d{8}T\d{6}Z)\/(\d{8}T\d{6}Z)$/.exec(dates ?? '')
+  if (!stamps) throw new Error(`not an ICS date range: ${dates}`)
+  const parse = (value: string) =>
+    Date.parse(
+      `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 11)}:${value.slice(11, 13)}:${value.slice(13)}`,
+    )
+  return [parse(stamps[1] as string), parse(stamps[2] as string)]
 }
 
 function newStore(): RecordStore {
@@ -42,6 +53,7 @@ async function storedPomodoro(): Promise<PomodoroRecord | undefined> {
 describe('PomodoroPanel', () => {
   beforeEach(() => {
     fakeBrowser.reset()
+    vi.restoreAllMocks()
   })
 
   it('shows the start form when no pomodoro is active', async () => {
@@ -193,6 +205,57 @@ describe('PomodoroPanel', () => {
     await renderSeeded('Rounding')
 
     expect(screen.getByRole('img', { name: '2 of 4 rounds done in this set' })).toBeInTheDocument()
+  })
+
+  it('opens a Google Calendar event covering the rest of the current phase', async () => {
+    await seed('Writing')
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+
+    await renderSeeded('Writing')
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Focus end to Google Calendar' }))
+
+    expect(open).toHaveBeenCalledWith(expect.any(String), '_blank', 'noopener,noreferrer')
+    const params = new URL(open.mock.calls[0]?.[0] as string).searchParams
+    expect(params.get('text')).toBe('Writing — Focus')
+    const [start, end] = icsRange(params.get('dates'))
+    expect(end - start).toBeCloseTo(CONFIG.focusMs, -4)
+  })
+
+  it('measures a paused phase from its remaining time, not its stale target', async () => {
+    await seed('Halted', {
+      status: 'paused',
+      remainingMsAtPause: 600_000,
+      targetTimestamp: Date.now() - 3_600_000,
+    })
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+
+    await renderSeeded('Halted')
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Focus end to Google Calendar' }))
+
+    const [start, end] = icsRange(new URL(open.mock.calls[0]?.[0] as string).searchParams.get('dates'))
+    expect(start).toBeGreaterThan(Date.now() - 60_000)
+    expect(end - start).toBe(600_000)
+  })
+
+  it('downloads an .ics file for the current phase', async () => {
+    await seed('Writing')
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:chronly-test')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    await renderSeeded('Writing')
+    await fireEvent.click(screen.getByRole('button', { name: 'Download the .ics calendar file for Focus end' }))
+
+    expect(click).toHaveBeenCalled()
+    const blob = createObjectURL.mock.calls[0]?.[0] as Blob
+    expect(await blob.text()).toContain('SUMMARY:Writing — Focus')
+  })
+
+  it('hides the calendar hand-off until a pomodoro is running', async () => {
+    render(PomodoroPanel)
+
+    await screen.findByRole('button', { name: 'Start' })
+    expect(screen.queryByRole('button', { name: /Google Calendar/ })).toBeNull()
   })
 
   it('shows the lifetime stats held in storage', async () => {

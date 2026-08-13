@@ -13,6 +13,11 @@ function seedStore() {
   return new RecordStore(createExtensionStorageBackend('local'))
 }
 
+/** The basic-format UTC stamp both the Google link and the .ics file use. */
+function toIcsDate(timestamp: number): string {
+  return new Date(timestamp).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+}
+
 function onlyAlarm(stored: SchedulableRecord[]): AlarmRecord {
   const [record] = stored
   if (record?.kind !== 'alarm') throw new Error('expected exactly one alarm record')
@@ -123,6 +128,51 @@ describe('AlarmsPanel', () => {
     render(AlarmsPanel)
 
     expect(await screen.findByText('Snoozed')).toBeInTheDocument()
+  })
+
+  it('opens a pre-filled Google Calendar event for an alarm', async () => {
+    await seedStore().upsert(createAlarm('Wake up', new Date(2026, 1, 2, 7, 0).getTime(), MONDAY_6AM))
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+
+    render(AlarmsPanel)
+    await screen.findByText('Wake up')
+    await fireEvent.click(screen.getByRole('button', { name: 'Add alarm Wake up to Google Calendar' }))
+
+    expect(open).toHaveBeenCalledWith(expect.any(String), '_blank', 'noopener,noreferrer')
+    const link = new URL(open.mock.calls[0]?.[0] as string)
+    expect(`${link.origin}${link.pathname}`).toBe('https://calendar.google.com/calendar/render')
+    expect(link.searchParams.get('text')).toBe('Wake up')
+  })
+
+  it('anchors the calendar event to the snoozed time rather than the original one', async () => {
+    // A label of its own: `records` is a module store whose last value outlives
+    // an unmount, so a shared label would let the previous test's row answer.
+    const alarm = createAlarm('Snoozed ring', MONDAY_6AM, MONDAY_6AM)
+    const snoozedUntil = Date.now() + 300_000
+    await seedStore().upsert({ ...alarm, snoozedUntil })
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+
+    render(AlarmsPanel)
+    await screen.findByText('Snoozed ring')
+    await fireEvent.click(screen.getByRole('button', { name: 'Add alarm Snoozed ring to Google Calendar' }))
+
+    const dates = new URL(open.mock.calls[0]?.[0] as string).searchParams.get('dates')
+    expect(dates?.split('/')[0]).toBe(toIcsDate(snoozedUntil))
+  })
+
+  it('downloads an .ics file for an alarm', async () => {
+    await seedStore().upsert(createAlarm('Wake up', new Date(2026, 1, 2, 7, 0).getTime(), MONDAY_6AM))
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:chronly-test')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    render(AlarmsPanel)
+    await screen.findByText('Wake up')
+    await fireEvent.click(screen.getByRole('button', { name: 'Download the .ics calendar file for alarm Wake up' }))
+
+    expect(click).toHaveBeenCalled()
+    const blob = createObjectURL.mock.calls[0]?.[0] as Blob
+    expect(await blob.text()).toContain('SUMMARY:Wake up')
   })
 
   it('previews the alarm without saving it when Test is pressed', async () => {

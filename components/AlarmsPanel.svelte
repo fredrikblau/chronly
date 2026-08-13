@@ -11,6 +11,7 @@
     formatAlarmClock,
     nextOccurrence,
   } from '../lib/ui/alarmTime'
+  import { downloadIcs, openGoogleCalendarLink } from '../lib/ui/calendarAction'
   import { createNowStore } from '../lib/ui/now'
   import { records, recordActions } from '../lib/ui/records'
   import { settings } from '../lib/ui/settings'
@@ -24,7 +25,6 @@
   let selectedDays = $state<number[]>([])
   let soundId = $state(SOUND_PRESETS[0].id)
   let volume = $state(0.8)
-  let fullScreenTakeover = $state(false)
 
   const alarms = $derived(
     ($records ?? [])
@@ -55,7 +55,6 @@
     return createAlarm(label.trim() || 'Alarm', targetTimestamp, at, sortedDays.length ? { days: sortedDays } : null, {
       soundId,
       volume,
-      fullScreenTakeover,
     })
   }
 
@@ -76,6 +75,32 @@
     const at = Date.now()
     void showNotification(buildNotificationSpec(buildDraft(at, at)))
     void playAlarmSound(soundId, volume)
+  }
+
+  /** A ring is an instant, but a calendar entry needs width — this is the block
+   *  the event occupies, long enough to read on a day view. */
+  const CALENDAR_EVENT_MS = 5 * 60_000
+
+  /** A snooze supersedes the stored target, so the calendar entry follows the
+   *  same due time the row is counting down to. */
+  function calendarEventFor(alarm: AlarmRecord) {
+    const start = new Date(effectiveDueTime(alarm))
+    return {
+      title: alarm.label,
+      start,
+      end: new Date(start.getTime() + CALENDAR_EVENT_MS),
+      description: `Chronly alarm (${describeRecurrence(alarm.recurrence)})`,
+    }
+  }
+
+  function addToGoogleCalendar(alarm: AlarmRecord) {
+    const { title, start, end, description } = calendarEventFor(alarm)
+    openGoogleCalendarLink(title, start, end, description)
+  }
+
+  function saveIcs(alarm: AlarmRecord) {
+    const { title, start, end, description } = calendarEventFor(alarm)
+    downloadIcs(title, start, end, description)
   }
 
   function statusFor(alarm: AlarmRecord): string {
@@ -105,9 +130,6 @@
               {#if alarm.snoozedUntil !== null}
                 <span class="badge">Snoozed</span>
               {/if}
-              {#if alarm.fullScreenTakeover}
-                <span class="badge quiet">Takeover</span>
-              {/if}
             </div>
             <div class="metaRow">
               <span class="repeat">{describeRecurrence(alarm.recurrence)}</span>
@@ -115,14 +137,47 @@
               <span class="until">{statusFor(alarm)}</span>
             </div>
           </div>
-          <button
-            type="button"
-            class="delete"
-            aria-label={`Delete alarm ${alarm.label}`}
-            onclick={() => void recordActions.remove(alarm.id)}
-          >
-            <span aria-hidden="true">✕</span>
-          </button>
+          <div class="rowActions">
+            <button
+              type="button"
+              class="calBtn"
+              title={`Add alarm ${alarm.label} to Google Calendar`}
+              aria-label={`Add alarm ${alarm.label} to Google Calendar`}
+              onclick={() => addToGoogleCalendar(alarm)}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">
+                <rect x="2.2" y="3.4" width="11.6" height="10.4" rx="2" />
+                <path d="M2.2 6.6h11.6M5.6 2v2.6M10.4 2v2.6" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="calBtn"
+              title={`Download the .ics calendar file for alarm ${alarm.label}`}
+              aria-label={`Download the .ics calendar file for alarm ${alarm.label}`}
+              onclick={() => saveIcs(alarm)}
+            >
+              <svg
+                viewBox="0 0 16 16"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M8 2.4v7.2M5.1 6.9 8 9.8l2.9-2.9M3.2 13.2h9.6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="delete"
+              aria-label={`Delete alarm ${alarm.label}`}
+              onclick={() => void recordActions.remove(alarm.id)}
+            >
+              <span aria-hidden="true">✕</span>
+            </button>
+          </div>
         </li>
       {/each}
     </ul>
@@ -186,11 +241,6 @@
         <span class="percent">{Math.round(volume * 100)}%</span>
       </div>
     </div>
-
-    <label class="check">
-      <input type="checkbox" bind:checked={fullScreenTakeover} />
-      <span>Full-screen takeover</span>
-    </label>
 
     <p class="preview" aria-live="polite">{previewCaption}</p>
 
@@ -319,14 +369,42 @@
     white-space: nowrap;
   }
 
-  .badge.quiet {
-    background: var(--surface-strong);
-    color: var(--muted);
-  }
-
   .metaRow {
     font-size: 0.75rem;
     color: var(--muted);
+  }
+
+  .rowActions {
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+  }
+
+  .calBtn {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      color 120ms ease,
+      background 120ms ease;
+  }
+
+  .calBtn svg {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  .calBtn:hover,
+  .calBtn:focus-visible {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: #f5f5f7;
   }
 
   .delete {
@@ -489,22 +567,6 @@
     text-align: right;
   }
 
-  .check {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-size: 0.8rem;
-    color: var(--muted);
-    cursor: pointer;
-  }
-
-  .check input {
-    width: 0.9rem;
-    height: 0.9rem;
-    padding: 0;
-    accent-color: var(--accent);
-  }
-
   .preview {
     margin: 0;
     font-size: 0.75rem;
@@ -564,6 +626,7 @@
   @media (prefers-reduced-motion: reduce) {
     .alarm,
     .day,
+    .calBtn,
     .delete,
     .actions button {
       transition: none;
