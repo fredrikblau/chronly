@@ -309,16 +309,17 @@
 
 <style>
   .panel {
-    --accent: #8b7cf6;
-    --phase: var(--accent);
-    --surface: rgba(255, 255, 255, 0.05);
-    --line: rgba(245, 245, 247, 0.12);
-    --muted: rgba(245, 245, 247, 0.58);
+    --phase: var(--accent, #8b7cf6);
+    /* The popup root owns these; the fallbacks only matter when a panel is
+       mounted on its own, as the tests do. */
+    --surface: var(--tint, rgba(255, 255, 255, 0.05));
+    --line: var(--hairline, rgba(245, 245, 247, 0.12));
+    --muted: var(--fg-muted, rgba(245, 245, 247, 0.58));
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
     width: 100%;
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
     font-family: inherit;
   }
 
@@ -377,16 +378,16 @@
   }
 
   .running[data-phase='focus'] {
-    --phase: #8b7cf6;
+    --phase: var(--accent-ink, #8b7cf6);
   }
   .running[data-phase='shortBreak'] {
-    --phase: #4ec9b0;
+    --phase: var(--phase-short, #4ec9b0);
   }
   .running[data-phase='longBreak'] {
-    --phase: #5aa9f7;
+    --phase: var(--phase-long, #5aa9f7);
   }
   .running.paused {
-    --phase: rgba(245, 245, 247, 0.45);
+    --phase: var(--fg-muted, rgba(245, 245, 247, 0.45));
   }
 
   .phase {
@@ -425,7 +426,7 @@
 
   .track {
     fill: none;
-    stroke: rgba(245, 245, 247, 0.1);
+    stroke: var(--hairline, rgba(245, 245, 247, 0.1));
     stroke-width: 5;
   }
 
@@ -559,9 +560,9 @@
   }
 
   .chip[aria-pressed='true'] {
-    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-    background: color-mix(in srgb, var(--accent) 16%, transparent);
-    color: #f5f5f7;
+    border-color: color-mix(in srgb, var(--accent, #8b7cf6) 60%, transparent);
+    background: color-mix(in srgb, var(--accent, #8b7cf6) 16%, transparent);
+    color: var(--fg, #f5f5f7);
   }
 
   .fields {
@@ -592,7 +593,7 @@
     padding: 0;
     border: none;
     background: transparent;
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
     font: inherit;
     font-size: 0.95rem;
     font-weight: 600;
@@ -621,8 +622,8 @@
 
   .primary {
     border: none;
-    background: var(--accent);
-    color: #0b0b0f;
+    background: var(--accent, #8b7cf6);
+    color: var(--on-accent, #0b0b0f);
   }
 
   .ghost {
@@ -641,12 +642,12 @@
   }
 
   .ghost:hover {
-    color: #f5f5f7;
-    border-color: rgba(245, 245, 247, 0.3);
+    color: var(--fg, #f5f5f7);
+    border-color: color-mix(in srgb, var(--fg, #f5f5f7) 30%, transparent);
   }
 
   :where(button, input):focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 2px;
   }
 

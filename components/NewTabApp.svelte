@@ -2,6 +2,7 @@
   import { browser } from 'wxt/browser'
   import { formatTimeInZone, getDayOffset } from '../lib/core/time'
   import { createNowStore } from '../lib/ui/now'
+  import { backgroundSurface } from '../lib/ui/palette'
   import { settings } from '../lib/ui/settings'
   import { worldClocks } from '../lib/ui/worldClocks'
   import ClockFace from './ClockFace.svelte'
@@ -33,51 +34,12 @@
 
   const clocks = $derived($worldClocks ?? [])
 
-  const COLOR_PATTERN = /#[0-9a-f]{3,8}\b|rgba?\([^)]*\)/gi
-
-  function parseColorChannels(css: string): [number, number, number] | null {
-    const hex = /^#([0-9a-f]{3})([0-9a-f])?$|^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(css)
-    if (hex) {
-      const short = hex[1]
-      const digits = short ? [...short].map((c) => c + c).join('') : (hex[3] ?? '')
-      return [0, 2, 4].map((i) => parseInt(digits.slice(i, i + 2), 16)) as [number, number, number]
-    }
-    const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(css)
-    if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])]
-    return null
-  }
-
   /**
-   * Mean perceived brightness (0..1) of every colour a background string
-   * mentions, or null when none of them can be read (a named CSS colour, say).
-   * Gradients carry several stops; averaging them, and skipping the sRGB gamma
-   * ramp, is coarse but enough to answer the only question being asked — is
-   * this surface dark or light?
+   * Whatever the text actually sits on decides the palette; the theme is only
+   * consulted, by the CSS below, when that surface cannot be measured. The
+   * popup shares this reading of the background — see lib/ui/palette.
    */
-  function surfaceLuminance(css: string): number | null {
-    const matches = css.match(COLOR_PATTERN) ?? [css.trim()]
-    const values = matches
-      .map(parseColorChannels)
-      .filter((channels): channels is [number, number, number] => channels !== null)
-      .map(([r, g, b]) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255)
-    if (values.length === 0) return null
-    return values.reduce((sum, value) => sum + value, 0) / values.length
-  }
-
-  /**
-   * The background is configured independently of the theme, so the theme on
-   * its own cannot choose the text colour — 'auto' on a light desktop with the
-   * default near-black background would print black on black. Whatever the text
-   * actually sits on decides, and the theme is only consulted when that surface
-   * is unreadable from here. An image is unknowable, so it gets a scrim and is
-   * treated as dark.
-   */
-  const surface = $derived.by<'dark' | 'light' | 'unknown'>(() => {
-    if ($settings.background.type === 'image') return 'dark'
-    const luminance = surfaceLuminance($settings.background.value)
-    if (luminance === null) return 'unknown'
-    return luminance < 0.5 ? 'dark' : 'light'
-  })
+  const surface = $derived(backgroundSurface($settings.background))
 
   // Seconds are deliberately dropped from the strip: it is a glance, not a
   // stopwatch, and a row of ticking digits fights the big clock for attention.
@@ -116,6 +78,17 @@
       popupUnavailable = true
     }
   }
+
+  /**
+   * The page furniture sizes itself in rem, which resolves against the document
+   * root and not this element, so the scale has to be set there to reach any of
+   * it. The popup scales itself the same way.
+   */
+  $effect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--font-scale', String($settings.fontScale))
+    return () => root.style.removeProperty('--font-scale')
+  })
 </script>
 
 <div
@@ -163,6 +136,12 @@
 </div>
 
 <style>
+  :global(html) {
+    /* Set on the document element by the effect above, so every rem below it
+       follows the text-size setting. */
+    font-size: calc(100% * var(--font-scale, 1));
+  }
+
   :global(html),
   :global(body) {
     margin: 0;
@@ -195,9 +174,10 @@
     background-size: cover;
     background-position: center;
     color: var(--fg);
-    /* fontScale sizes the page furniture. The clock face itself is already
-       viewport-relative, which is the right behaviour on a full-tab surface. */
-    font-size: calc(1rem * var(--font-scale, 1));
+    /* The scale lives on the document root; sizing in rem here would apply it a
+       second time. The clock face stays viewport-relative, which is the right
+       behaviour on a full-tab surface. */
+    font-size: 1rem;
     font-family:
       system-ui,
       -apple-system,

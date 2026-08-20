@@ -130,15 +130,16 @@
 
 <style>
   .panel {
-    --accent: #8b7cf6;
-    --surface: rgba(255, 255, 255, 0.04);
-    --line: rgba(255, 255, 255, 0.1);
-    --muted: rgba(245, 245, 247, 0.55);
+    /* The popup root owns these; the fallbacks only matter when a panel is
+       mounted on its own, as the tests do. */
+    --surface: var(--tint, rgba(255, 255, 255, 0.04));
+    --line: var(--hairline, rgba(255, 255, 255, 0.1));
+    --muted: var(--fg-muted, rgba(245, 245, 247, 0.55));
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     width: 100%;
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
   }
 
   h2 {
@@ -182,7 +183,7 @@
   }
 
   .current-lap-time {
-    color: var(--accent);
+    color: var(--accent-ink, #8b7cf6);
   }
 
   .controls {
@@ -205,34 +206,34 @@
   }
 
   .primary {
-    background: var(--accent);
-    color: #0b0b0f;
+    background: var(--accent, #8b7cf6);
+    color: var(--on-accent, #0b0b0f);
     font-weight: 600;
   }
 
   .primary:hover {
-    background: #9d90f8;
+    background: color-mix(in srgb, var(--accent, #8b7cf6) 85%, #ffffff);
   }
 
   .primary.is-running {
     background: transparent;
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--accent, #8b7cf6);
+    color: var(--accent-ink, #8b7cf6);
   }
 
   .primary.is-running:hover {
-    background: rgba(139, 124, 246, 0.14);
+    background: color-mix(in srgb, var(--accent, #8b7cf6) 14%, transparent);
   }
 
   .ghost {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--tint, rgba(255, 255, 255, 0.06));
     border-color: var(--line);
     color: var(--muted);
   }
 
   .ghost:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.12);
-    color: #f5f5f7;
+    background: var(--tint-strong, rgba(255, 255, 255, 0.12));
+    color: var(--fg, #f5f5f7);
   }
 
   .ghost:disabled {
@@ -261,7 +262,7 @@
   }
 
   .laps li + li {
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.06));
   }
 
   .lap-name {
@@ -275,15 +276,15 @@
   }
 
   .laps li.is-fastest .lap-split {
-    color: #6ee7b7;
+    color: var(--success, #6ee7b7);
   }
 
   .laps li.is-slowest .lap-split {
-    color: #fca5a5;
+    color: var(--danger, #fca5a5);
   }
 
   :is(button):focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 2px;
   }
 

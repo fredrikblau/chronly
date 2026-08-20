@@ -253,11 +253,12 @@
 
 <style>
   .alarms {
-    --accent: #8b7cf6;
-    --surface: rgba(255, 255, 255, 0.045);
-    --surface-strong: rgba(255, 255, 255, 0.08);
-    --line: rgba(255, 255, 255, 0.09);
-    --muted: #a5a5b0;
+    /* The popup root owns these; the fallbacks only matter when a panel is
+       mounted on its own, as the tests do. */
+    --surface: var(--tint, rgba(255, 255, 255, 0.045));
+    --surface-strong: var(--tint-strong, rgba(255, 255, 255, 0.08));
+    --line: var(--hairline, rgba(255, 255, 255, 0.09));
+    --muted: var(--fg-muted, #a5a5b0);
 
     display: flex;
     flex-direction: column;
@@ -362,7 +363,7 @@
   .badge {
     padding: 0.05rem 0.35rem;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 30%, transparent);
+    background: color-mix(in srgb, var(--accent, #8b7cf6) 30%, transparent);
     font-size: 0.65rem;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -403,8 +404,8 @@
 
   .calBtn:hover,
   .calBtn:focus-visible {
-    background: color-mix(in srgb, var(--accent) 22%, transparent);
-    color: #f5f5f7;
+    background: color-mix(in srgb, var(--accent, #8b7cf6) 22%, transparent);
+    color: var(--fg, #f5f5f7);
   }
 
   .delete {
@@ -426,8 +427,8 @@
 
   .delete:hover,
   .delete:focus-visible {
-    background: rgba(248, 113, 113, 0.15);
-    color: #fca5a5;
+    background: var(--danger-tint, rgba(248, 113, 113, 0.15));
+    color: var(--danger, #fca5a5);
   }
 
   .new {
@@ -460,7 +461,7 @@
     padding: 0.4rem 0.55rem;
     border: 1px solid var(--line);
     border-radius: 0.5rem;
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--field, rgba(0, 0, 0, 0.25));
     color: inherit;
     font: inherit;
     font-size: 0.85rem;
@@ -478,7 +479,7 @@
   input:focus-visible,
   select:focus-visible,
   button:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 2px;
   }
 
@@ -518,14 +519,14 @@
   }
 
   .day:hover {
-    border-color: var(--accent);
-    color: #f5f5f7;
+    border-color: var(--accent, #8b7cf6);
+    color: var(--fg, #f5f5f7);
   }
 
   .day.on {
     border-color: transparent;
-    background: var(--accent);
-    color: #14121f;
+    background: var(--accent, #8b7cf6);
+    color: var(--on-accent, #14121f);
     font-weight: 600;
   }
 
@@ -541,7 +542,7 @@
   .field select {
     flex: 1 1 auto;
     max-width: 60%;
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
   }
 
   .slider {
@@ -558,7 +559,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    accent-color: var(--accent);
+    accent-color: var(--accent, #8b7cf6);
   }
 
   .percent {
@@ -597,19 +598,19 @@
   }
 
   .ghost:hover {
-    border-color: var(--accent);
+    border-color: var(--accent, #8b7cf6);
   }
 
   .primary {
     flex: 1 1 auto;
     border: 1px solid transparent;
-    background: var(--accent);
-    color: #14121f;
+    background: var(--accent, #8b7cf6);
+    color: var(--on-accent, #14121f);
     font-weight: 600;
   }
 
   .primary:hover {
-    background: color-mix(in srgb, var(--accent) 85%, #ffffff);
+    background: color-mix(in srgb, var(--accent, #8b7cf6) 85%, #ffffff);
   }
 
   .sr-only {

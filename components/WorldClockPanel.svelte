@@ -244,15 +244,16 @@
 
 <style>
   .panel {
-    --accent: #8b7cf6;
-    --surface: rgba(255, 255, 255, 0.04);
-    --border: rgba(255, 255, 255, 0.1);
-    --muted: rgba(245, 245, 247, 0.6);
+    /* The popup root owns these; the fallbacks only matter when a panel is
+       mounted on its own, as the tests do. */
+    --surface: var(--tint, rgba(255, 255, 255, 0.04));
+    --border: var(--hairline, rgba(255, 255, 255, 0.1));
+    --muted: var(--fg-muted, rgba(245, 245, 247, 0.6));
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     width: 100%;
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
     font-family: system-ui, sans-serif;
     text-align: left;
   }
@@ -303,7 +304,7 @@
 
   .reference.planned .reference-time,
   .reference.planned .reference-label {
-    color: var(--accent);
+    color: var(--accent-ink, #8b7cf6);
   }
 
   .planner {
@@ -326,7 +327,7 @@
   }
 
   input[type='checkbox'] {
-    accent-color: var(--accent);
+    accent-color: var(--accent, #8b7cf6);
     width: 0.95rem;
     height: 0.95rem;
     margin: 0;
@@ -335,7 +336,7 @@
   .planner-time input {
     font: inherit;
     color: inherit;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--field, rgba(0, 0, 0, 0.35));
     border: 1px solid var(--border);
     border-radius: 0.4rem;
     padding: 0.15rem 0.35rem;
@@ -375,7 +376,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     width: 3px;
-    background: var(--row-accent, var(--accent));
+    background: var(--row-accent, var(--accent, #8b7cf6));
   }
 
   .row-top {
@@ -420,23 +421,23 @@
   .chip {
     padding: 0.05rem 0.35rem;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--tint-strong, rgba(255, 255, 255, 0.07));
     font-variant-numeric: tabular-nums;
   }
 
   .reach-work {
-    color: #7ee2b8;
-    background: rgba(126, 226, 184, 0.14);
+    color: var(--success, #7ee2b8);
+    background: var(--success-tint, rgba(126, 226, 184, 0.14));
   }
 
   .reach-fringe {
-    color: #f0c674;
-    background: rgba(240, 198, 116, 0.14);
+    color: var(--warn, #f0c674);
+    background: var(--warn-tint, rgba(240, 198, 116, 0.14));
   }
 
   .reach-night {
-    color: #f3948f;
-    background: rgba(243, 148, 143, 0.14);
+    color: var(--danger, #f3948f);
+    background: var(--danger-tint, rgba(243, 148, 143, 0.14));
   }
 
   .row-actions {
@@ -465,13 +466,13 @@
   }
 
   .icon:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-    color: #f5f5f7;
+    background: var(--tint-strong, rgba(255, 255, 255, 0.1));
+    color: var(--fg, #f5f5f7);
   }
 
   .icon.danger:hover:not(:disabled) {
-    background: rgba(243, 148, 143, 0.18);
-    color: #f3948f;
+    background: var(--danger-tint, rgba(243, 148, 143, 0.18));
+    color: var(--danger, #f3948f);
   }
 
   .icon:disabled {
@@ -490,7 +491,7 @@
     font: inherit;
     font-size: 0.8rem;
     color: inherit;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--field, rgba(0, 0, 0, 0.35));
     border: 1px solid var(--border);
     border-radius: 0.45rem;
     padding: 0.35rem 0.5rem;
@@ -498,7 +499,7 @@
   }
 
   .field::placeholder {
-    color: rgba(245, 245, 247, 0.35);
+    color: var(--fg-faint, rgba(245, 245, 247, 0.35));
   }
 
   .zone {
@@ -525,8 +526,8 @@
     font: inherit;
     font-size: 0.8rem;
     font-weight: 500;
-    color: #0b0b0f;
-    background: var(--accent);
+    color: var(--on-accent, #0b0b0f);
+    background: var(--accent, #8b7cf6);
     border: none;
     border-radius: 0.45rem;
     padding: 0.35rem 0.8rem;
@@ -538,14 +539,14 @@
   }
 
   :is(.field, .icon, .add-button, input):focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 1px;
   }
 
   .error {
     margin: 0;
     font-size: 0.72rem;
-    color: #f3948f;
+    color: var(--danger, #f3948f);
   }
 
   .visually-hidden {

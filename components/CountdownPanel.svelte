@@ -191,15 +191,16 @@
 
 <style>
   .panel {
-    --accent: #8b7cf6;
-    --surface: rgba(255, 255, 255, 0.04);
-    --line: rgba(255, 255, 255, 0.1);
-    --muted: rgba(245, 245, 247, 0.55);
+    /* The popup root owns these; the fallbacks only matter when a panel is
+       mounted on its own, as the tests do. */
+    --surface: var(--tint, rgba(255, 255, 255, 0.04));
+    --line: var(--hairline, rgba(255, 255, 255, 0.1));
+    --muted: var(--fg-muted, rgba(245, 245, 247, 0.55));
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     width: 100%;
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
   }
 
   h2 {
@@ -245,7 +246,7 @@
   }
 
   .timer.is-done {
-    border-color: rgba(139, 124, 246, 0.5);
+    border-color: color-mix(in srgb, var(--accent, #8b7cf6) 50%, transparent);
   }
 
   .timer-head {
@@ -268,7 +269,7 @@
     flex: none;
     padding: 0.05rem 0.4rem;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--tint-strong, rgba(255, 255, 255, 0.08));
     font-size: 0.625rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -284,7 +285,7 @@
   }
 
   .timer-remaining.is-urgent {
-    color: var(--accent);
+    color: var(--accent-ink, #8b7cf6);
   }
 
   .timer-actions {
@@ -297,12 +298,12 @@
     position: absolute;
     inset: auto 0 0 0;
     height: 2px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--tint-strong, rgba(255, 255, 255, 0.08));
   }
 
   .progress-fill {
     height: 100%;
-    background: var(--accent);
+    background: var(--accent, #8b7cf6);
     transition: width 0.25s linear;
   }
 
@@ -345,13 +346,13 @@
 
   .sound-row input[type='range'] {
     flex: 1 1 40%;
-    accent-color: var(--accent);
+    accent-color: var(--accent, #8b7cf6);
   }
 
   input,
   select {
     padding: 0.4rem 0.5rem;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--field, rgba(255, 255, 255, 0.06));
     border: 1px solid var(--line);
     border-radius: 0.5rem;
     color: inherit;
@@ -396,13 +397,13 @@
 
   .primary {
     grid-column: 1 / -1;
-    background: var(--accent);
-    color: #0b0b0f;
+    background: var(--accent, #8b7cf6);
+    color: var(--on-accent, #0b0b0f);
     font-weight: 600;
   }
 
   .primary:hover:not(:disabled) {
-    background: #9d90f8;
+    background: color-mix(in srgb, var(--accent, #8b7cf6) 85%, #ffffff);
   }
 
   .primary:disabled {
@@ -411,20 +412,20 @@
   }
 
   .ghost {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--tint, rgba(255, 255, 255, 0.06));
     border-color: var(--line);
     color: var(--muted);
   }
 
   .ghost:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #f5f5f7;
+    background: var(--tint-strong, rgba(255, 255, 255, 0.12));
+    color: var(--fg, #f5f5f7);
   }
 
   .ghost.danger:hover {
-    background: rgba(248, 113, 113, 0.16);
-    border-color: rgba(248, 113, 113, 0.4);
-    color: #fca5a5;
+    background: var(--danger-tint, rgba(248, 113, 113, 0.16));
+    border-color: color-mix(in srgb, var(--danger, #fca5a5) 45%, transparent);
+    color: var(--danger, #fca5a5);
   }
 
   .preset {
@@ -435,16 +436,16 @@
   }
 
   .preset:hover {
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
   }
 
   .preset.is-active {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--accent, #8b7cf6);
+    color: var(--accent-ink, #8b7cf6);
   }
 
   :is(button, input, select):focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 2px;
   }
 

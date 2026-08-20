@@ -218,6 +218,17 @@ describe('NewTabApp', () => {
     await waitFor(() => expect(face).toHaveTextContent(/^\d{2}:\d{2}$/))
   })
 
+  // The page furniture sizes itself in rem, which resolves against the document
+  // root rather than the dashboard element, so the scale has to land there.
+  it('scales the document root so the text-size setting reaches the page', async () => {
+    await seedSettings({ fontScale: 1.5 })
+
+    render(NewTabApp)
+    await screen.findByRole('timer')
+
+    await waitFor(() => expect(document.documentElement.style.getPropertyValue('--font-scale')).toBe('1.5'))
+  })
+
   it('marks the page as reduced-motion when the setting is on', async () => {
     await seedSettings({ reducedMotion: true })
 

@@ -120,6 +120,13 @@
     />
   </div>
 
+  <!--
+    Said plainly because the two surfaces treat this differently on purpose: the
+    dashboard is a canvas, the popup is a dense control panel that only takes a
+    background on when the theme can be read over it.
+  -->
+  <p class="note">The New Tab dashboard always uses this; the popup follows when it suits the theme.</p>
+
   {#if error}
     <p class="error" role="alert">{error}</p>
   {:else if background.type === 'image'}
@@ -134,15 +141,16 @@
 
 <style>
   .panel {
-    --accent: #8b7cf6;
-    --surface: rgba(255, 255, 255, 0.04);
-    --border: rgba(255, 255, 255, 0.1);
-    --muted: rgba(245, 245, 247, 0.6);
+    /* The popup root owns these; the fallbacks only matter when a panel is
+       mounted on its own, as the tests do. */
+    --surface: var(--tint, rgba(255, 255, 255, 0.04));
+    --border: var(--hairline, rgba(255, 255, 255, 0.1));
+    --muted: var(--fg-muted, rgba(245, 245, 247, 0.6));
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
     width: 100%;
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
     font-family: system-ui, sans-serif;
     text-align: left;
   }
@@ -200,8 +208,8 @@
   }
 
   .gradient[aria-pressed='true'] {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
+    border-color: var(--accent, #8b7cf6);
+    box-shadow: 0 0 0 1px var(--accent, #8b7cf6);
   }
 
   .image {
@@ -215,7 +223,7 @@
     font: inherit;
     font-size: 0.8rem;
     color: inherit;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--field, rgba(0, 0, 0, 0.35));
     border: 1px solid var(--border);
     border-radius: 0.45rem;
     padding: 0.35rem 0.5rem;
@@ -223,13 +231,13 @@
   }
 
   .field::placeholder {
-    color: rgba(245, 245, 247, 0.35);
+    color: var(--fg-faint, rgba(245, 245, 247, 0.35));
   }
 
   .error {
     margin: 0;
     font-size: 0.72rem;
-    color: #f3948f;
+    color: var(--danger, #f3948f);
   }
 
   .note {
@@ -239,7 +247,7 @@
   }
 
   :is(.field, .gradient, .swatch):focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 1px;
   }
 </style>

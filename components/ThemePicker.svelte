@@ -97,25 +97,21 @@
     <span>Reduce motion</span>
   </label>
 
-  <!--
-    Text size and reduced motion shape the New Tab dashboard, which is the
-    surface these settings are for; the popup is a fixed 400px panel and
-    deliberately renders at its own scale.
-  -->
-  <p class="note">Text size and motion apply to the New Tab dashboard.</p>
+  <p class="note">These apply here and on the New Tab dashboard.</p>
 </section>
 
 <style>
   .panel {
-    --accent: #8b7cf6;
-    --surface: rgba(255, 255, 255, 0.04);
-    --border: rgba(255, 255, 255, 0.1);
-    --muted: rgba(245, 245, 247, 0.6);
+    /* The popup root owns these; the fallbacks only matter when a panel is
+       mounted on its own, as the tests do. */
+    --surface: var(--tint, rgba(255, 255, 255, 0.04));
+    --border: var(--hairline, rgba(255, 255, 255, 0.1));
+    --muted: var(--fg-muted, rgba(245, 245, 247, 0.6));
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
     width: 100%;
-    color: #f5f5f7;
+    color: var(--fg, #f5f5f7);
     font-family: system-ui, sans-serif;
     text-align: left;
   }
@@ -164,8 +160,8 @@
   }
 
   .option.on {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--accent, #8b7cf6);
+    color: var(--accent-ink, #8b7cf6);
   }
 
   /* The radio itself stays in the accessibility tree and keeps the group's
@@ -181,7 +177,7 @@
   }
 
   .option:focus-within {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 1px;
   }
 
@@ -194,7 +190,7 @@
   }
 
   input[type='checkbox'] {
-    accent-color: var(--accent);
+    accent-color: var(--accent, #8b7cf6);
     width: 0.95rem;
     height: 0.95rem;
     margin: 0;
@@ -209,7 +205,7 @@
   }
 
   .slider input {
-    accent-color: var(--accent);
+    accent-color: var(--accent, #8b7cf6);
     min-width: 0;
   }
 
@@ -227,7 +223,7 @@
   }
 
   :is(input, .option):focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 1px;
   }
 </style>
