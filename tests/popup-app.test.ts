@@ -16,6 +16,7 @@ describe('popup App', () => {
       'Timers',
       'World',
       'Focus',
+      'Settings',
     ])
   })
 
@@ -42,7 +43,7 @@ describe('popup App', () => {
     // Wraps backwards from the first tab to the last.
     await fireEvent.keyDown(screen.getByRole('tab', { name: 'Alarms' }), { key: 'ArrowLeft' })
     await fireEvent.keyDown(screen.getByRole('tab', { name: 'Clock' }), { key: 'ArrowLeft' })
-    expect(screen.getByRole('tab', { name: 'Focus' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('keeps inactive panels mounted so their storage subscriptions stay live', async () => {

@@ -1,9 +1,11 @@
 <script lang="ts">
   import AlarmsPanel from '../../components/AlarmsPanel.svelte'
+  import BackgroundPicker from '../../components/BackgroundPicker.svelte'
   import ClockFace from '../../components/ClockFace.svelte'
   import CountdownPanel from '../../components/CountdownPanel.svelte'
   import PomodoroPanel from '../../components/PomodoroPanel.svelte'
   import StopwatchPanel from '../../components/StopwatchPanel.svelte'
+  import ThemePicker from '../../components/ThemePicker.svelte'
   import WorldClockPanel from '../../components/WorldClockPanel.svelte'
   import { createNowStore } from '../../lib/ui/now'
   import { settings } from '../../lib/ui/settings'
@@ -16,6 +18,7 @@
     { id: 'timers', label: 'Timers' },
     { id: 'world', label: 'World' },
     { id: 'focus', label: 'Focus' },
+    { id: 'settings', label: 'Settings' },
   ] as const
   type TabId = (typeof TABS)[number]['id']
 
@@ -95,6 +98,17 @@
     <div id="panel-focus" role="tabpanel" aria-labelledby="tab-focus" hidden={activeTab !== 'focus'}>
       <PomodoroPanel />
     </div>
+
+    <div
+      id="panel-settings"
+      role="tabpanel"
+      aria-labelledby="tab-settings"
+      hidden={activeTab !== 'settings'}
+      class="stacked"
+    >
+      <ThemePicker />
+      <BackgroundPicker />
+    </div>
   </main>
 </div>
 
@@ -127,7 +141,11 @@
     font: inherit;
     font-size: 0.8125rem;
     font-weight: 500;
-    padding: 0.5rem 0.25rem;
+    /* Six tabs share a fixed 400px popup, so the longest label ("Settings")
+       sets the floor here — any more horizontal padding wraps the strip. */
+    padding: 0.5rem 0.125rem;
+    min-width: 0;
+    white-space: nowrap;
     cursor: pointer;
     border-radius: 6px 6px 0 0;
   }
