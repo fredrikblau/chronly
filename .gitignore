@@ -4,3 +4,5 @@ node_modules/
 .output/
 .wxt/
 *.local
+playwright-report/
+test-results/

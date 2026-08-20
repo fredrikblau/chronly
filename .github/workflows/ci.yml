@@ -20,3 +20,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run build:firefox
+      - run: npx playwright install --with-deps chromium
+      # Loading an unpacked extension needs a headed Chromium, so the runner
+      # gets a virtual framebuffer.
+      - run: xvfb-run -a npm run test:e2e

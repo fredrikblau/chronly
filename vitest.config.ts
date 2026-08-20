@@ -1,5 +1,5 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import { WxtVitest } from 'wxt/testing/vitest-plugin'
 
 export default defineConfig({
@@ -13,5 +13,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    // e2e/ holds Playwright specs, which match Vitest's default `*.spec.ts`
+    // include and throw as soon as they are collected. `npm run test:e2e` owns
+    // that directory.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 })
