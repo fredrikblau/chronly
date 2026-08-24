@@ -32,14 +32,24 @@ export function formatUtcOffsetLabel(offsetMinutes: number): string {
   return `UTC${sign}${hours}${minutes ? ':' + String(minutes).padStart(2, '0') : ''}`
 }
 
-function zonedDateKey(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+/** Returns calendar parts without depending on a locale's punctuation/order. */
+export function getCalendarDateParts(date: Date, timeZone: string): [number, number, number] {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const part = (type: 'year' | 'month' | 'day') => Number(parts.find((entry) => entry.type === type)?.value ?? 0)
+  return [part('year'), part('month'), part('day')]
 }
 
 export function getDayOffset(baseZone: string, targetZone: string, at: Date): number {
-  const baseDate = new Date(zonedDateKey(at, baseZone) + 'T00:00:00Z')
-  const targetDate = new Date(zonedDateKey(at, targetZone) + 'T00:00:00Z')
-  return Math.round((targetDate.getTime() - baseDate.getTime()) / 86_400_000)
+  const [baseYear, baseMonth, baseDay] = getCalendarDateParts(at, baseZone)
+  const [targetYear, targetMonth, targetDay] = getCalendarDateParts(at, targetZone)
+  const baseDate = Date.UTC(baseYear, baseMonth - 1, baseDay)
+  const targetDate = Date.UTC(targetYear, targetMonth - 1, targetDay)
+  return Math.round((targetDate - baseDate) / 86_400_000)
 }
 
 export function getRelativeDiffLabel(baseZone: string, targetZone: string, at: Date): string {

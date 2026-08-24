@@ -2,6 +2,7 @@
   import {
     formatTimeInZone,
     formatUtcOffsetLabel,
+    getCalendarDateParts,
     getRelativeDiffLabel,
     getUtcOffsetMinutes,
     zonedWallTimeToInstant,
@@ -35,14 +36,7 @@
   const planningActive = $derived(planning && /^\d{1,2}:\d{2}/.test(plannedTime))
 
   function localDateParts(at: Date): [number, number, number] {
-    const key = new Intl.DateTimeFormat('en-CA', {
-      timeZone: localZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(at)
-    const [year, month, day] = key.split('-').map(Number)
-    return [year, month, day]
+    return getCalendarDateParts(at, localZone)
   }
 
   function resolveInstant(nowMs: number, isPlanning: boolean, hhmm: string): Date {

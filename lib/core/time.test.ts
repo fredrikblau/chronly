@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatTimeInZone,
   formatUtcOffsetLabel,
+  getCalendarDateParts,
   getDayOffset,
   getRelativeDiffLabel,
   getUtcOffsetMinutes,
@@ -50,6 +51,13 @@ describe('getDayOffset', () => {
 
   it('is positive when the target zone is a calendar day ahead', () => {
     expect(getDayOffset('America/Los_Angeles', 'Pacific/Kiritimati', new Date('2026-01-15T20:00:00Z'))).toBeGreaterThan(0)
+  })
+})
+
+describe('getCalendarDateParts', () => {
+  it('returns numeric calendar parts for a target zone', () => {
+    const parts = getCalendarDateParts(new Date('2026-01-15T23:30:00Z'), 'Asia/Tokyo')
+    expect(parts).toEqual([2026, 1, 16])
   })
 })
 
