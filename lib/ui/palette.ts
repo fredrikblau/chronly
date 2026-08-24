@@ -13,6 +13,15 @@ const UNSAFE_IN_URL = /[()\s"'\\{}<>]/
 export function isSafeImageUrl(value: string): boolean {
   const url = value.trim()
   if (!url || UNSAFE_IN_URL.test(url)) return false
+  if (url.toLowerCase().startsWith('data:')) {
+    const comma = url.indexOf(',')
+    if (comma < 0) return false
+    const metadata = url.slice(5, comma)
+    const mediaType = metadata.split(';', 1)[0]?.toLowerCase()
+    // Raster data is self-contained and inert as a CSS background. SVG and
+    // non-image data URLs can carry markup or an unexpected document type.
+    return Boolean(mediaType?.startsWith('image/') && mediaType !== 'image/svg+xml')
+  }
   try {
     return IMAGE_PROTOCOLS.has(new URL(url).protocol)
   } catch {

@@ -94,6 +94,8 @@ describe('isSafeImageUrl', () => {
 
   it('rejects CSS-breaking or unsupported URLs', () => {
     expect(isSafeImageUrl('javascript:alert(1)')).toBe(false)
+    expect(isSafeImageUrl('data:text/html,<h1>not an image</h1>')).toBe(false)
+    expect(isSafeImageUrl('data:image/svg+xml,<svg></svg>')).toBe(false)
     expect(isSafeImageUrl('https://example.com/a) ; color:red')).toBe(false)
     expect(isSafeImageUrl('https://example.com/photo.jpg?caption=hello world')).toBe(false)
   })
