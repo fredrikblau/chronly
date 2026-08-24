@@ -47,6 +47,22 @@ export class RecordStore {
     await this.backend.set(RECORDS_KEY, map)
   }
 
+  /**
+   * Replace a record only if the snapshot used to derive the replacement is
+   * still current. The background tick reads records, performs notification
+   * work, and then writes them back; a popup can delete or edit one during
+   * that gap. Refusing a stale replacement prevents the tick from resurrecting
+   * deleted records or clobbering a user's edit.
+   */
+  async replaceIfCurrent(record: SchedulableRecord, expectedUpdatedAt: number): Promise<boolean> {
+    const map = await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)
+    const current = map?.[record.id]
+    if (!current || current.updatedAt !== expectedUpdatedAt) return false
+    map[record.id] = record
+    await this.backend.set(RECORDS_KEY, map)
+    return true
+  }
+
   async remove(id: string): Promise<void> {
     const map = (await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)) ?? {}
     delete map[id]

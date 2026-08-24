@@ -54,6 +54,18 @@ describe('RecordStore', () => {
     await store.remove('alarm-1')
     expect(await store.getAll()).toEqual([])
   })
+
+  it('does not replace a record after it was changed or removed', async () => {
+    const store = new RecordStore(createMemoryStorageBackend())
+    await store.upsert(sampleAlarm)
+
+    expect(await store.replaceIfCurrent({ ...sampleAlarm, label: 'Updated by tick' }, 1)).toBe(false)
+    expect(await store.get(sampleAlarm.id)).toEqual(sampleAlarm)
+
+    await store.remove(sampleAlarm.id)
+    expect(await store.replaceIfCurrent(sampleAlarm, sampleAlarm.updatedAt)).toBe(false)
+    expect(await store.get(sampleAlarm.id)).toBeUndefined()
+  })
 })
 
 describe('WorldClockStore', () => {

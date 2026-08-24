@@ -47,8 +47,8 @@ export async function reconcileDueRecords(store: RecordStore, now: number): Prom
       // Advance the record before counting the session. If the worker dies
       // between the two writes this under-counts by one rather than leaving
       // the record due, re-firing it next tick and counting it twice.
-      await store.upsert(reconcileFiredRecord(record, now))
-      if (record.kind === 'pomodoro' && record.phase === 'focus') {
+      const replaced = await store.replaceIfCurrent(reconcileFiredRecord(record, now), record.updatedAt)
+      if (replaced && record.kind === 'pomodoro' && record.phase === 'focus') {
         await statsStore.recordCompletedFocusSession(record.config.focusMs)
       }
     } catch (error) {

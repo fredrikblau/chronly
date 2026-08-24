@@ -140,6 +140,20 @@ describe('reconcileDueRecords', () => {
 
     expect(create).toHaveBeenCalledTimes(2)
   })
+
+  it('does not resurrect a record deleted while its notification is being shown', async () => {
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+    vi.spyOn(fakeBrowser.notifications, 'create').mockImplementation(async () => {
+      await store.remove(alarm.id)
+      return undefined
+    })
+
+    await reconcileDueRecords(store, NOW + 1)
+
+    expect(await store.get(alarm.id)).toBeUndefined()
+  })
 })
 
 describe('handleNotificationButton', () => {
