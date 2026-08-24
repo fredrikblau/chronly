@@ -95,7 +95,9 @@ npm run lint:firefox   # validate the built Firefox artifact with Mozilla's lint
 npm run verify:manifests # check Chrome/Firefox manifest invariants after building
 ```
 
-CI runs `typecheck`, `lint`, `test`, and both builds on every pull request.
+CI runs typecheck, lint, unit tests, both browser builds, manifest validation,
+Firefox artifact lint, and the Chromium extension smoke tests on every pull
+request.
 
 Release steps live in [RELEASING.md](RELEASING.md).
 
