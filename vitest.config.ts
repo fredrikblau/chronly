@@ -16,6 +16,6 @@ export default defineConfig({
     // e2e/ holds Playwright specs, which match Vitest's default `*.spec.ts`
     // include and throw as soon as they are collected. `npm run test:e2e` owns
     // that directory.
-    exclude: [...configDefaults.exclude, 'e2e/**'],
+    exclude: [...configDefaults.exclude, 'e2e/**', '.worktrees/**'],
   },
 })
