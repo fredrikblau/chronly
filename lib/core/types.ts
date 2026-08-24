@@ -75,6 +75,7 @@ export interface Settings {
   hour12: boolean
   showSeconds: boolean
   fontScale: number
+  clockContrast: number
   reducedMotion: boolean
   background: BackgroundConfig
 }
@@ -85,6 +86,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hour12: false,
   showSeconds: true,
   fontScale: 1,
+  clockContrast: 1,
   reducedMotion: false,
   background: { type: 'solid', value: '#0b0b0f', accentColor: '#8b7cf6' },
 }

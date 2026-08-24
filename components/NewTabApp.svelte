@@ -113,6 +113,7 @@
       hour12={$settings.hour12}
       showSeconds={$settings.showSeconds}
       mode={$settings.clockMode}
+      contrast={$settings.clockContrast}
     />
     <p class="date">{longDate}</p>
   </main>

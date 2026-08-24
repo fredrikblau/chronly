@@ -7,7 +7,7 @@ All notable changes to Chronly are documented here. The format follows
 
 ### Added
 
-- Digital and analog clocks with 12/24-hour and seconds preferences.
+- Digital and analog clocks with 12/24-hour, seconds, size, and contrast preferences.
 - Unlimited world clocks with UTC offsets, time differences, and meeting
   planning.
 - One-off and recurring alarms with redundant notification and audio firing,

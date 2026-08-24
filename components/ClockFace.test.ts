@@ -32,6 +32,11 @@ describe('ClockFace', () => {
     expect(screen.getByRole('timer')).toBeInTheDocument()
   })
 
+  it('applies the configured contrast to the clock face', () => {
+    const { container } = render(ClockFace, { now: NOON_UTC, contrast: 1.35 })
+    expect(container.querySelector('.digital')).toHaveStyle('--clock-contrast: 1.35')
+  })
+
   it('points the hands at the zoned time, not UTC', () => {
     const { container } = render(ClockFace, {
       now: NOON_UTC,

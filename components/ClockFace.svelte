@@ -7,6 +7,7 @@
     hour12?: boolean
     showSeconds?: boolean
     mode?: 'digital' | 'analog' | 'both'
+    contrast?: number
   }
 
   const {
@@ -15,6 +16,7 @@
     hour12 = false,
     showSeconds = true,
     mode = 'digital',
+    contrast = 1,
   }: Props = $props()
 
   const display = $derived(formatTimeInZone(new Date(now), timeZone, { hour12, showSeconds }))
@@ -40,10 +42,10 @@
 </script>
 
 {#if mode === 'digital' || mode === 'both'}
-  <div class="digital" role="timer" aria-live="off">{display}</div>
+  <div class="digital" role="timer" aria-live="off" style:--clock-contrast={contrast}>{display}</div>
 {/if}
 {#if mode === 'analog' || mode === 'both'}
-  <svg class="analog" viewBox="0 0 100 100" aria-hidden="true">
+  <svg class="analog" viewBox="0 0 100 100" aria-hidden="true" style:--clock-contrast={contrast}>
     <circle cx="50" cy="50" r="48" class="face" />
     <line
       x1="50"
@@ -78,10 +80,12 @@
     font-size: clamp(2.5rem, 15vw, 9rem);
     font-weight: 300;
     letter-spacing: 0.02em;
+    filter: contrast(var(--clock-contrast, 1));
   }
   .analog {
     width: 12rem;
     height: 12rem;
+    filter: contrast(var(--clock-contrast, 1));
   }
   .face {
     fill: none;

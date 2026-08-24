@@ -36,7 +36,7 @@ To load a built version manually:
 
 The popup is a tabbed control center: clock, alarms, timers and stopwatch, world clocks, Pomodoro, and settings.
 
-- **Clock** — digital and analog faces, or both at once; 12- or 24-hour; optional seconds; an adjustable text size for the New Tab dashboard.
+- **Clock** — digital and analog faces, or both at once; 12- or 24-hour; optional seconds; adjustable text size and clock contrast.
 - **World clocks** — unlimited saved zones, each showing its local time, UTC offset, a plain-text difference from your own zone, and an at-a-glance "working hours / off hours / asleep" read on the people there. Meeting-planner mode lets you pick a time and see every saved zone re-rendered at it. Zones come from your browser's own time zone database, so there's no bundled city list to go stale.
 - **Alarms** — one-off or repeating on chosen weekdays, with a choice of alert tone, a volume slider, a "test" button that fires the real notification and sound so you can confirm both work, a 5-minute snooze, and redundant firing (system notification _and_ sound) so one blocked channel can't cause a silent miss.
 - **Timer & stopwatch** — several countdown timers running at once, with pause/resume, quick presets, and per-timer tone and volume; plus a stopwatch with lap splits that highlights the fastest and slowest lap. Both survive the popup closing and the browser restarting.

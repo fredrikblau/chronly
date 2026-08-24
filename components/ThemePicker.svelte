@@ -15,6 +15,7 @@
   ] as const satisfies readonly { value: Settings['clockMode']; label: string }[]
 
   const fontScalePercent = $derived(`${Math.round($settings.fontScale * 100)}%`)
+  const clockContrastPercent = $derived(`${Math.round($settings.clockContrast * 100)}%`)
 
   function update(patch: Partial<Settings>) {
     void settingsActions.update(patch)
@@ -86,6 +87,20 @@
       oninput={(e) => update({ fontScale: Number(e.currentTarget.value) })}
     />
     <output for="chronly-font-scale">{fontScalePercent}</output>
+  </div>
+
+  <div class="slider">
+    <label for="chronly-clock-contrast">Clock contrast</label>
+    <input
+      id="chronly-clock-contrast"
+      type="range"
+      min="0.75"
+      max="1.5"
+      step="0.05"
+      value={$settings.clockContrast}
+      oninput={(e) => update({ clockContrast: Number(e.currentTarget.value) })}
+    />
+    <output for="chronly-clock-contrast">{clockContrastPercent}</output>
   </div>
 
   <label class="toggle">

@@ -82,6 +82,24 @@ describe('ThemePicker', () => {
     await expectSetting('fontScale', 1.4)
   })
 
+  it('updates the clock contrast from the slider', async () => {
+    render(ThemePicker)
+    const slider = await screen.findByLabelText('Clock contrast')
+
+    await fireEvent.input(slider, { target: { value: '1.35' } })
+
+    await expectSetting('clockContrast', 1.35)
+  })
+
+  it('shows the stored clock contrast', async () => {
+    await seed({ clockContrast: 1.5 })
+
+    render(ThemePicker)
+
+    expect(await screen.findByText('150%')).toBeInTheDocument()
+    expect(screen.getByLabelText('Clock contrast')).toHaveValue('1.5')
+  })
+
   it('shows the font scale as a percentage', async () => {
     await seed({ fontScale: 1.5 })
 
