@@ -41,3 +41,31 @@ test('settings can build a custom background and pick its accent', async ({ cont
     .poll(async () => page.evaluate(() => document.documentElement.style.getPropertyValue('--bg')))
     .toContain('linear-gradient')
 })
+
+test('scheduled data survives force-closing the MV3 service worker', async ({ context, extensionId }) => {
+  const page = await context.newPage()
+  await page.goto(`chrome-extension://${extensionId}/popup.html`)
+
+  const timers = page.getByRole('tab', { name: 'Timers' })
+  await timers.click()
+  const panel = page.getByRole('tabpanel', { name: 'Timers' })
+  await panel.getByPlaceholder('Label').fill('Suspension test')
+  await panel.getByRole('button', { name: '1 min' }).click()
+  await panel.locator('form.new-timer').getByRole('button', { name: 'Start', exact: true }).click()
+  await expect(panel.getByRole('listitem').filter({ hasText: 'Suspension test' })).toBeVisible()
+
+  const cdp = await context.newCDPSession(page)
+  const { targetInfos } = await cdp.send('Target.getTargets')
+  const worker = targetInfos.find(
+    (target) => target.type === 'service_worker' && target.url === `chrome-extension://${extensionId}/background.js`,
+  )
+  if (!worker) throw new Error('Could not find the Chronly service-worker target')
+  await cdp.send('Target.closeTarget', { targetId: worker.targetId })
+
+  const reopened = await context.newPage()
+  await reopened.goto(`chrome-extension://${extensionId}/popup.html`)
+  await reopened.getByRole('tab', { name: 'Timers' }).click()
+  await expect(
+    reopened.getByRole('tabpanel', { name: 'Timers' }).getByRole('listitem').filter({ hasText: 'Suspension test' }),
+  ).toBeVisible()
+})
