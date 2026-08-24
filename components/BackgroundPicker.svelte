@@ -1,7 +1,7 @@
 <script lang="ts">
   import { DEFAULT_SETTINGS } from '../lib/core/types'
   import type { BackgroundConfig } from '../lib/core/types'
-  import { isSafeImageUrl } from '../lib/ui/palette'
+  import { accentFromCss, accentFromLocalImage, isSafeImageUrl } from '../lib/ui/palette'
   import { settings, settingsActions } from '../lib/ui/settings'
 
   const GRADIENT_PRESETS = [
@@ -12,6 +12,9 @@
   ]
 
   let error = $state<string | null>(null)
+  let customStart = $state('#ff7e5f')
+  let customEnd = $state('#feb47b')
+  let customAngle = $state(135)
 
   const background = $derived($settings.background)
   const solidValue = $derived(background.type === 'solid' ? background.value : DEFAULT_SETTINGS.background.value)
@@ -33,6 +36,22 @@
 
   function setAccent(color: string) {
     apply({ accentColor: color })
+  }
+
+  function applyCustomGradient() {
+    error = null
+    apply({ type: 'gradient', value: `linear-gradient(${customAngle}deg, ${customStart}, ${customEnd})` })
+  }
+
+  async function extractAccent() {
+    const extracted =
+      background.type === 'image' ? await accentFromLocalImage(background.value) : accentFromCss(background.value)
+    if (!extracted) {
+      error = 'Accent extraction is available for solid, gradient, and uploaded images.'
+      return
+    }
+    error = null
+    apply({ accentColor: extracted })
   }
 
   function setImage(raw: string) {
@@ -115,6 +134,20 @@
     {/each}
   </div>
 
+  <fieldset class="custom-gradient">
+    <legend>Custom gradient</legend>
+    <div class="gradient-controls">
+      <label for="chronly-gradient-start">Start</label>
+      <input id="chronly-gradient-start" class="swatch" type="color" bind:value={customStart} />
+      <label for="chronly-gradient-end">End</label>
+      <input id="chronly-gradient-end" class="swatch" type="color" bind:value={customEnd} />
+      <label for="chronly-gradient-angle">Angle</label>
+      <input id="chronly-gradient-angle" type="range" min="0" max="360" step="1" bind:value={customAngle} />
+      <output for="chronly-gradient-angle">{customAngle}°</output>
+    </div>
+    <button type="button" class="action" onclick={applyCustomGradient}>Apply custom gradient</button>
+  </fieldset>
+
   <div class="image">
     <label for="chronly-bg-image">Image URL</label>
     <input
@@ -128,6 +161,8 @@
       onchange={(e) => setImage(e.currentTarget.value)}
     />
   </div>
+
+  <button type="button" class="action" onclick={extractAccent}>Auto-pick accent from background</button>
 
   <!--
     Said plainly because the two surfaces treat this differently on purpose: the
@@ -228,6 +263,56 @@
     flex-direction: column;
     gap: 0.25rem;
     font-size: 0.8rem;
+  }
+
+  .custom-gradient {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 0.8rem;
+  }
+
+  .custom-gradient legend {
+    padding: 0;
+    color: var(--muted);
+  }
+
+  .gradient-controls {
+    display: grid;
+    grid-template-columns: auto auto auto auto auto 1fr auto;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .gradient-controls input[type='range'] {
+    min-width: 0;
+  }
+
+  output {
+    min-width: 3ch;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .action {
+    width: fit-content;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 0.45rem;
+    background: var(--surface);
+    color: inherit;
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  .action:focus-visible {
+    outline: 2px solid var(--accent, #8b7cf6);
+    outline-offset: 1px;
   }
 
   .field {

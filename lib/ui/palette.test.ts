@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { BackgroundConfig } from '../core/types'
-import { backgroundSurface, isSafeImageUrl, surfaceLuminance, surfaceOf } from './palette'
+import {
+  accentFromCss,
+  accentFromLocalImage,
+  backgroundSurface,
+  isSafeImageUrl,
+  surfaceLuminance,
+  surfaceOf,
+} from './palette'
 
 const background = (patch: Partial<BackgroundConfig>): BackgroundConfig => ({
   type: 'solid',
@@ -45,6 +52,26 @@ describe('surfaceLuminance', () => {
     const blue = surfaceLuminance('#0000ff') ?? 0
     expect(green).toBeGreaterThan(red)
     expect(red).toBeGreaterThan(blue)
+  })
+})
+
+describe('accentFromCss', () => {
+  it('returns the solid colour unchanged', () => {
+    expect(accentFromCss('#123456')).toBe('#123456')
+  })
+
+  it('averages readable gradient stops', () => {
+    expect(accentFromCss('linear-gradient(90deg, #000000, #ffffff)')).toBe('#808080')
+  })
+
+  it('returns null for an unreadable background', () => {
+    expect(accentFromCss('papayawhip')).toBeNull()
+  })
+})
+
+describe('accentFromLocalImage', () => {
+  it('does not fetch remote images', async () => {
+    await expect(accentFromLocalImage('https://example.com/photo.jpg')).resolves.toBeNull()
   })
 })
 

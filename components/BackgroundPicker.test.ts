@@ -48,6 +48,17 @@ describe('BackgroundPicker', () => {
     expect(screen.getByRole('button', { name: 'Sunset' })).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('applies a custom gradient from the builder', async () => {
+    render(BackgroundPicker)
+
+    await fireEvent.input(screen.getByLabelText('Start'), { target: { value: '#112233' } })
+    await fireEvent.input(screen.getByLabelText('End'), { target: { value: '#aabbcc' } })
+    await fireEvent.input(screen.getByLabelText('Angle'), { target: { value: '45' } })
+    await fireEvent.click(screen.getByRole('button', { name: 'Apply custom gradient' }))
+
+    await expectBackground({ type: 'gradient', value: 'linear-gradient(45deg, #112233, #aabbcc)' })
+  })
+
   it('sets a solid colour', async () => {
     render(BackgroundPicker)
 
@@ -69,6 +80,20 @@ describe('BackgroundPicker', () => {
     await fireEvent.input(screen.getByLabelText('Accent colour'), { target: { value: '#00ff00' } })
 
     await expectBackground({ type: 'gradient', value: SUNSET, accentColor: '#00ff00' })
+  })
+
+  it('can auto-pick an accent from a CSS background', async () => {
+    await seed({ background: { type: 'solid', value: '#123456', accentColor: '#8b7cf6' } })
+    render(BackgroundPicker)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Solid colour')).toHaveValue('#123456')
+    })
+    await fireEvent.click(screen.getByRole('button', { name: 'Auto-pick accent from background' }))
+
+    await waitFor(async () => {
+      expect((await readSettings()).background.accentColor).toBe('#123456')
+    })
   })
 
   it('sets an image URL', async () => {

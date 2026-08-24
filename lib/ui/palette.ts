@@ -49,6 +49,79 @@ function parseColorChannels(css: string): [number, number, number] | null {
   return null
 }
 
+function toHex([r, g, b]: [number, number, number]): string {
+  return `#${[r, g, b]
+    .map((channel) =>
+      Math.round(Math.max(0, Math.min(255, channel)))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
+}
+
+/** Return a representative accent for a solid colour or CSS gradient. */
+export function accentFromCss(css: string): string | null {
+  const matches = css.match(COLOR_PATTERN) ?? [css.trim()]
+  const values = matches
+    .map(parseColorChannels)
+    .filter((channels): channels is [number, number, number] => channels !== null)
+  if (values.length === 0) return null
+  const average: [number, number, number] = [
+    values.reduce((sum, [r]) => sum + r, 0) / values.length,
+    values.reduce((sum, [, g]) => sum + g, 0) / values.length,
+    values.reduce((sum, [, , b]) => sum + b, 0) / values.length,
+  ]
+  return toHex(average)
+}
+
+/**
+ * Extract a representative colour from a locally uploaded raster image. URL
+ * images are deliberately excluded: fetching them here would add a second
+ * network request and would make the privacy warning in the settings panel
+ * misleading.
+ */
+export function accentFromLocalImage(dataUrl: string): Promise<string | null> {
+  if (!dataUrl.startsWith('data:image/')) return Promise.resolve(null)
+  return new Promise((resolve) => {
+    if (typeof Image === 'undefined' || typeof document === 'undefined') {
+      resolve(null)
+      return
+    }
+    const image = new Image()
+    image.onload = () => {
+      try {
+        const size = 32
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const context = canvas.getContext('2d', { willReadFrequently: true })
+        if (!context) {
+          resolve(null)
+          return
+        }
+        context.drawImage(image, 0, 0, size, size)
+        const pixels = context.getImageData(0, 0, size, size).data
+        let red = 0
+        let green = 0
+        let blue = 0
+        let weight = 0
+        for (let index = 0; index < pixels.length; index += 4) {
+          const alpha = (pixels[index + 3] ?? 0) / 255
+          red += (pixels[index] ?? 0) * alpha
+          green += (pixels[index + 1] ?? 0) * alpha
+          blue += (pixels[index + 2] ?? 0) * alpha
+          weight += alpha
+        }
+        resolve(weight === 0 ? null : toHex([red / weight, green / weight, blue / weight]))
+      } catch {
+        resolve(null)
+      }
+    }
+    image.onerror = () => resolve(null)
+    image.src = dataUrl
+  })
+}
+
 /**
  * Mean perceived brightness (0..1) of every colour a CSS value mentions, or
  * null when none of them can be read (a named CSS colour, say). Gradients carry
