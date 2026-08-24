@@ -4,9 +4,7 @@
 
 Chronly is a fast, private, open-source browser extension for Chrome and Firefox: a clean clock dashboard on your New Tab page, and a toolbar popup with world clocks, alarms, a timer/stopwatch, and Pomodoro sessions. No ads, no tracking, no account, no artificial limits.
 
-[![CI](https://github.com/REPLACE-ME/chronly/actions/workflows/ci.yml/badge.svg)](https://github.com/REPLACE-ME/chronly/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/github/package-json/v/REPLACE-ME/chronly)](package.json)
 
 ![Chronly popup](docs/assets/popup-screenshot.png)
 ![Chronly New Tab dashboard](docs/assets/newtab-screenshot.png)
