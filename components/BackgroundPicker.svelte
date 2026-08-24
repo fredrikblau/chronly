@@ -77,6 +77,16 @@
       error = 'Enter an https://, http://, or data: image URL without CSS-breaking characters.'
       return
     }
+    if (url.toLowerCase().startsWith('data:')) {
+      error = null
+      void backgroundImageActions
+        .set(url)
+        .then(() => apply({ type: 'image', value: LOCAL_BACKGROUND_IMAGE_VALUE }))
+        .catch(() => {
+          error = 'The image could not be stored locally.'
+        })
+      return
+    }
     error = null
     void backgroundImageActions.clear()
     apply({ type: 'image', value: url })

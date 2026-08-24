@@ -105,6 +105,19 @@ describe('BackgroundPicker', () => {
     await expectBackground({ type: 'image', value: 'https://example.com/bg.jpg' })
   })
 
+  it('stores a pasted raster data URL locally instead of syncing its bytes', async () => {
+    render(BackgroundPicker)
+
+    await fireEvent.change(imageInput(), { target: { value: 'data:image/png;base64,AAAA' } })
+
+    await waitFor(async () => {
+      expect((await readSettings()).background.value).toBe(LOCAL_BACKGROUND_IMAGE_VALUE)
+      expect(await new BackgroundImageStore(createExtensionStorageBackend('local')).get()).toBe(
+        'data:image/png;base64,AAAA',
+      )
+    })
+  })
+
   it('stores an uploaded raster image as a local data URL', async () => {
     render(BackgroundPicker)
     const file = new File(['fake png bytes'], 'wallpaper.png', { type: 'image/png' })
