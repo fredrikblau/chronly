@@ -11,6 +11,7 @@ exercised by an automated test. Run through this list before every release
 - [ ] `npm run lint:firefox` reports zero Firefox artifact errors after
       `npm run build:firefox` (the Svelte runtime may emit a non-failing generic
       `UNSAFE_VAR_ASSIGNMENT` warning).
+- [ ] `npm run verify:manifests` passes after both browser builds.
 - [ ] `npm run test:e2e` passes against a fresh `npm run build`. It loads
       `.output/chrome-mv3/` into a real Chromium, so it needs a display; on a
       headless machine run it as `xvfb-run -a npm run test:e2e`.

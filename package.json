@@ -10,6 +10,7 @@
     "preview:newtab": "vite --config harness/vite.config.ts --open /newtab.html",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox --mv3",
+    "verify:manifests": "node scripts/verify-manifests.mjs",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox --mv3",
     "postinstall": "wxt prepare",

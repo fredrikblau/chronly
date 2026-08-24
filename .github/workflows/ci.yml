@@ -20,6 +20,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run build:firefox
+      - run: npm run verify:manifests
       - run: npm run lint:firefox
       - run: npx playwright install --with-deps chromium
       # Loading an unpacked extension needs a headed Chromium, so the runner
