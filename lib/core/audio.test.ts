@@ -44,6 +44,10 @@ describe('isPlaySoundMessage', () => {
     ['a wrong type', { target: 'offscreen', type: 'stop-sound', soundId: 'a', volume: 1 }],
     ['a missing volume', { target: 'offscreen', type: 'play-sound', soundId: 'a' }],
     ['a non-numeric volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: '1' }],
+    ['a NaN volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: NaN }],
+    ['an infinite volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: Infinity }],
+    ['a negative volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: -0.1 }],
+    ['an over-range volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: 1.1 }],
   ])('rejects %s', (_label, message) => {
     expect(isPlaySoundMessage(message)).toBe(false)
   })

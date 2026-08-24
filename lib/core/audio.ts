@@ -44,7 +44,10 @@ export function isPlaySoundMessage(message: unknown): message is PlaySoundMessag
     candidate.target === 'offscreen' &&
     candidate.type === 'play-sound' &&
     typeof candidate.soundId === 'string' &&
-    typeof candidate.volume === 'number'
+    typeof candidate.volume === 'number' &&
+    Number.isFinite(candidate.volume) &&
+    candidate.volume >= 0 &&
+    candidate.volume <= 1
   )
 }
 
