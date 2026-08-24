@@ -2,7 +2,7 @@
   import { DEFAULT_SETTINGS, LOCAL_BACKGROUND_IMAGE_VALUE } from '../lib/core/types'
   import { backgroundImage, backgroundImageActions } from '../lib/ui/backgroundImage'
   import type { BackgroundConfig } from '../lib/core/types'
-  import { accentFromCss, accentFromLocalImage, isSafeImageUrl } from '../lib/ui/palette'
+  import { accentFromCss, accentFromLocalImage, isRasterImageFile, isSafeImageUrl } from '../lib/ui/palette'
   import { settings, settingsActions } from '../lib/ui/settings'
 
   const GRADIENT_PRESETS = [
@@ -92,8 +92,12 @@
     apply({ type: 'image', value: url })
   }
 
-  function setImageFile(file: File | undefined) {
+  async function setImageFile(file: File | undefined) {
     if (!file) return
+    if (!(await isRasterImageFile(file))) {
+      error = 'Choose a raster image such as PNG, JPEG, GIF, WebP, or AVIF.'
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = typeof reader.result === 'string' ? reader.result : ''

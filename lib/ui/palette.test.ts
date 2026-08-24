@@ -4,6 +4,7 @@ import {
   accentFromCss,
   accentFromLocalImage,
   backgroundSurface,
+  isRasterImageFile,
   isSafeImageUrl,
   surfaceLuminance,
   surfaceOf,
@@ -125,5 +126,15 @@ describe('isSafeImageUrl', () => {
     expect(isSafeImageUrl('data:image/svg+xml,<svg></svg>')).toBe(false)
     expect(isSafeImageUrl('https://example.com/a) ; color:red')).toBe(false)
     expect(isSafeImageUrl('https://example.com/photo.jpg?caption=hello world')).toBe(false)
+  })
+})
+
+describe('isRasterImageFile', () => {
+  it('checks a PNG signature instead of trusting only the MIME type', async () => {
+    const png = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'x.png', {
+      type: 'image/png',
+    })
+    expect(await isRasterImageFile(png)).toBe(true)
+    expect(await isRasterImageFile(new File(['<svg></svg>'], 'x.png', { type: 'image/png' }))).toBe(false)
   })
 })

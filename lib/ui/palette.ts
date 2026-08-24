@@ -29,6 +29,34 @@ export function isSafeImageUrl(value: string): boolean {
   }
 }
 
+/** Check file bytes as well as the browser-supplied MIME label. */
+export async function isRasterImageFile(file: File): Promise<boolean> {
+  const type = file.type.toLowerCase()
+  const allowed = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp',
+    'image/avif',
+    'image/bmp',
+    'image/x-icon',
+  ])
+  if (!allowed.has(type)) return false
+
+  const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer())
+  const text = new TextDecoder().decode(bytes).trimStart().toLowerCase()
+  if (text.startsWith('<') || text.includes('<svg')) return false
+
+  const startsWith = (...signature: number[]) => signature.every((byte, index) => bytes[index] === byte)
+  if (type === 'image/png') return startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+  if (type === 'image/jpeg') return startsWith(0xff, 0xd8, 0xff)
+  if (type === 'image/gif') return text.startsWith('gif87a') || text.startsWith('gif89a')
+  if (type === 'image/bmp') return text.startsWith('bm')
+  if (type === 'image/x-icon') return startsWith(0x00, 0x00, 0x01, 0x00)
+  if (type === 'image/webp') return text.startsWith('riff') && text.slice(8, 12) === 'webp'
+  return text.slice(4, 8) === 'ftyp' && (text.slice(8, 12) === 'avif' || text.slice(8, 12) === 'avis')
+}
+
 /**
  * Which way round a surface reads: 'dark' wants light text on it, 'light' wants
  * dark text.

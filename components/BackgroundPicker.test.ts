@@ -120,7 +120,9 @@ describe('BackgroundPicker', () => {
 
   it('stores an uploaded raster image as a local data URL', async () => {
     render(BackgroundPicker)
-    const file = new File(['fake png bytes'], 'wallpaper.png', { type: 'image/png' })
+    const file = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'wallpaper.png', {
+      type: 'image/png',
+    })
 
     await fireEvent.change(screen.getByLabelText('Upload image'), { target: { files: [file] } })
 
@@ -137,6 +139,16 @@ describe('BackgroundPicker', () => {
   it('rejects an uploaded SVG image', async () => {
     render(BackgroundPicker)
     const file = new File(['<svg></svg>'], 'unsafe.svg', { type: 'image/svg+xml' })
+
+    await fireEvent.change(screen.getByLabelText('Upload image'), { target: { files: [file] } })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/raster image/i)
+    expect((await readSettings()).background.type).toBe('solid')
+  })
+
+  it('rejects SVG content with a forged raster MIME type', async () => {
+    render(BackgroundPicker)
+    const file = new File(['<svg xmlns="http://www.w3.org/2000/svg"></svg>'], 'unsafe.png', { type: 'image/png' })
 
     await fireEvent.change(screen.getByLabelText('Upload image'), { target: { files: [file] } })
 
