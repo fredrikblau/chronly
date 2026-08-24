@@ -13,6 +13,15 @@ test('popup shows a live clock and can create an alarm', async ({ context, exten
   const alarms = page.getByRole('tabpanel', { name: 'Alarms' })
   await expect(alarms).toBeVisible()
 
+  const cdp = await context.newCDPSession(page)
+  await alarms.getByRole('button', { name: 'Test', exact: true }).click()
+  await expect
+    .poll(async () => {
+      const { targetInfos } = await cdp.send('Target.getTargets')
+      return targetInfos.some((target) => target.url === `chrome-extension://${extensionId}/offscreen.html`)
+    })
+    .toBe(true)
+
   await alarms.getByPlaceholder('Label').fill('Smoke test alarm')
   // `exact` matters: each saved alarm row also has an "Add alarm <label> to
   // Google Calendar" button, which a substring match would collide with.
