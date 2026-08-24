@@ -21,3 +21,23 @@ test('popup shows a live clock and can create an alarm', async ({ context, exten
   // The row renders once the record round-trips through extension storage.
   await expect(alarms.getByRole('listitem').filter({ hasText: 'Smoke test alarm' })).toBeVisible()
 })
+
+test('settings can build a custom background and pick its accent', async ({ context, extensionId }) => {
+  const page = await context.newPage()
+  await page.goto(`chrome-extension://${extensionId}/popup.html`)
+
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  const settings = page.getByRole('tabpanel', { name: 'Settings' })
+
+  await settings.locator('label.option').filter({ hasText: 'Dark' }).click()
+  await settings.getByLabel('Start').fill('#112233')
+  await settings.getByLabel('End').fill('#aabbcc')
+  await settings.getByLabel('Angle').fill('45')
+  await settings.getByRole('button', { name: 'Apply custom gradient' }).click()
+  await settings.getByRole('button', { name: 'Auto-pick accent from background' }).click()
+
+  await expect(settings.getByRole('button', { name: 'Auto-pick accent from background' })).toBeVisible()
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.style.getPropertyValue('--bg')))
+    .toContain('linear-gradient')
+})
