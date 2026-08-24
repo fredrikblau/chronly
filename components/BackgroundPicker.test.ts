@@ -1,7 +1,8 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createExtensionStorageBackend, SettingsStore } from '../lib/core/storage'
+import { BackgroundImageStore, createExtensionStorageBackend, SettingsStore } from '../lib/core/storage'
+import { LOCAL_BACKGROUND_IMAGE_VALUE } from '../lib/core/types'
 import type { BackgroundConfig, Settings } from '../lib/core/types'
 import BackgroundPicker from './BackgroundPicker.svelte'
 
@@ -113,7 +114,10 @@ describe('BackgroundPicker', () => {
     await waitFor(async () => {
       const stored = (await readSettings()).background
       expect(stored.type).toBe('image')
-      expect(stored.value).toMatch(/^data:image\/png;base64,/)
+      expect(stored.value).toBe(LOCAL_BACKGROUND_IMAGE_VALUE)
+      expect(await new BackgroundImageStore(createExtensionStorageBackend('local')).get()).toMatch(
+        /^data:image\/png;base64,/,
+      )
     })
   })
 

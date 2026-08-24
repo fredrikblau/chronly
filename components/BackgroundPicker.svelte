@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { DEFAULT_SETTINGS } from '../lib/core/types'
+  import { DEFAULT_SETTINGS, LOCAL_BACKGROUND_IMAGE_VALUE } from '../lib/core/types'
+  import { backgroundImage, backgroundImageActions } from '../lib/ui/backgroundImage'
   import type { BackgroundConfig } from '../lib/core/types'
   import { accentFromCss, accentFromLocalImage, isSafeImageUrl } from '../lib/ui/palette'
   import { settings, settingsActions } from '../lib/ui/settings'
@@ -17,8 +18,11 @@
   let customAngle = $state(135)
 
   const background = $derived($settings.background)
+  const localImage = $derived($backgroundImage ?? '')
   const solidValue = $derived(background.type === 'solid' ? background.value : DEFAULT_SETTINGS.background.value)
-  const imageValue = $derived(background.type === 'image' ? background.value : '')
+  const imageValue = $derived(
+    background.type === 'image' && background.value !== LOCAL_BACKGROUND_IMAGE_VALUE ? background.value : '',
+  )
 
   function apply(patch: Partial<BackgroundConfig>) {
     void settingsActions.update({ background: { ...background, ...patch } })
@@ -26,11 +30,13 @@
 
   function setSolid(color: string) {
     error = null
+    void backgroundImageActions.clear()
     apply({ type: 'solid', value: color })
   }
 
   function setGradient(value: string) {
     error = null
+    void backgroundImageActions.clear()
     apply({ type: 'gradient', value })
   }
 
@@ -40,12 +46,15 @@
 
   function applyCustomGradient() {
     error = null
+    void backgroundImageActions.clear()
     apply({ type: 'gradient', value: `linear-gradient(${customAngle}deg, ${customStart}, ${customEnd})` })
   }
 
   async function extractAccent() {
     const extracted =
-      background.type === 'image' ? await accentFromLocalImage(background.value) : accentFromCss(background.value)
+      background.type === 'image'
+        ? await accentFromLocalImage(background.value === LOCAL_BACKGROUND_IMAGE_VALUE ? localImage : background.value)
+        : accentFromCss(background.value)
     if (!extracted) {
       error = 'Accent extraction is available for solid, gradient, and uploaded images.'
       return
@@ -60,6 +69,7 @@
       // Emptying the field is how an image is removed; falling back to the
       // default surface keeps the page readable instead of leaving `url()`.
       error = null
+      void backgroundImageActions.clear()
       apply({ type: 'solid', value: DEFAULT_SETTINGS.background.value })
       return
     }
@@ -68,6 +78,7 @@
       return
     }
     error = null
+    void backgroundImageActions.clear()
     apply({ type: 'image', value: url })
   }
 
@@ -81,7 +92,12 @@
         return
       }
       error = null
-      apply({ type: 'image', value: dataUrl })
+      void backgroundImageActions
+        .set(dataUrl)
+        .then(() => apply({ type: 'image', value: LOCAL_BACKGROUND_IMAGE_VALUE }))
+        .catch(() => {
+          error = 'The image could not be stored locally.'
+        })
     }
     reader.onerror = () => {
       error = 'The image could not be read.'
@@ -173,7 +189,7 @@
 
   {#if error}
     <p class="error" role="alert">{error}</p>
-  {:else if background.type === 'image' && background.value.startsWith('data:')}
+  {:else if background.type === 'image' && (background.value === LOCAL_BACKGROUND_IMAGE_VALUE || background.value.startsWith('data:'))}
     <p class="note">This image is stored locally in Chronly and is not fetched from a host.</p>
   {:else if background.type === 'image'}
     <!--

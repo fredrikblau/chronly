@@ -1,5 +1,7 @@
 <script lang="ts">
   import { browser } from 'wxt/browser'
+  import { LOCAL_BACKGROUND_IMAGE_VALUE } from '../lib/core/types'
+  import { backgroundImage } from '../lib/ui/backgroundImage'
   import { formatTimeInZone, getDayOffset } from '../lib/core/time'
   import { createNowStore } from '../lib/ui/now'
   import { backgroundSurface, isSafeImageUrl } from '../lib/ui/palette'
@@ -30,9 +32,13 @@
   // before it can stand in for a colour or gradient in the same `background`.
   const backgroundValue = $derived(
     $settings.background.type === 'image'
-      ? isSafeImageUrl($settings.background.value)
-        ? `url(${$settings.background.value.trim()})`
-        : '#0b0b0f'
+      ? (() => {
+          const image =
+            $settings.background.value === LOCAL_BACKGROUND_IMAGE_VALUE
+              ? ($backgroundImage ?? '')
+              : $settings.background.value
+          return isSafeImageUrl(image) ? `url(${image.trim()})` : '#0b0b0f'
+        })()
       : $settings.background.value,
   )
 

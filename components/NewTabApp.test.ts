@@ -2,7 +2,13 @@ import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { formatTimeInZone } from '../lib/core/time'
-import { createExtensionStorageBackend, SettingsStore, WorldClockStore } from '../lib/core/storage'
+import {
+  BackgroundImageStore,
+  createExtensionStorageBackend,
+  SettingsStore,
+  WorldClockStore,
+} from '../lib/core/storage'
+import { LOCAL_BACKGROUND_IMAGE_VALUE } from '../lib/core/types'
 import type { Settings, WorldClockEntry } from '../lib/core/types'
 import NewTabApp from './NewTabApp.svelte'
 
@@ -98,6 +104,18 @@ describe('NewTabApp', () => {
     const expected = formatTimeInZone(FIXED, 'Asia/Tokyo', { hour12: true, showSeconds: false })
     expect(await screen.findByText(expected)).toBeInTheDocument()
     expect(screen.queryByText('21:00')).toBeNull()
+  })
+
+  it('renders uploaded background bytes from local storage', async () => {
+    await new BackgroundImageStore(createExtensionStorageBackend('local')).set('data:image/png;base64,AAAA')
+    await seedSettings({
+      background: { type: 'image', value: LOCAL_BACKGROUND_IMAGE_VALUE, accentColor: '#8b7cf6' },
+    })
+
+    const { container } = render(NewTabApp)
+    await waitFor(() => {
+      expect(dashboard(container).style.getPropertyValue('--bg')).toContain('data:image/png')
+    })
   })
 
   it('omits the strip entirely when no world clocks are saved', async () => {

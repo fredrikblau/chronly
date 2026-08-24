@@ -65,9 +65,13 @@ export interface WorldClockEntry {
 
 export interface BackgroundConfig {
   type: 'solid' | 'gradient' | 'image'
-  value: string // css color, css gradient, or image data/URL
+  // `local-image` refers to the raster bytes kept in storage.local; URL values
+  // remain small enough to live with the synced settings record.
+  value: string // css color, css gradient, image URL, or LOCAL_BACKGROUND_IMAGE_VALUE
   accentColor: string
 }
+
+export const LOCAL_BACKGROUND_IMAGE_VALUE = 'local-image'
 
 export interface Settings {
   theme: 'light' | 'dark' | 'auto'

@@ -50,12 +50,12 @@ One caveat worth stating up front: Firefox does not support buttons on notificat
 
 Chronly asks for the minimum needed to do its job, and nothing else. This table is the full contents of `permissions` in the built manifest:
 
-| Permission                | Why                                                                                                                                                                  |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `alarms`                  | Wakes the background process on a schedule so alarms, timers, and Pomodoro phases still fire after the browser has suspended it.                                     |
-| `notifications`           | Shows the system notification when an alarm, timer, or Pomodoro phase completes.                                                                                     |
-| `storage`                 | Saves your alarms, timers, and stopwatch on this device, and your world clocks and settings in browser sync storage so they follow your signed-in profile.           |
-| `offscreen` (Chrome only) | Lets Chrome play the alarm sound — its background service worker has no audio API of its own. Firefox's background page plays audio directly and does not need this. |
+| Permission                | Why                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `alarms`                  | Wakes the background process on a schedule so alarms, timers, and Pomodoro phases still fire after the browser has suspended it.                                                            |
+| `notifications`           | Shows the system notification when an alarm, timer, or Pomodoro phase completes.                                                                                                            |
+| `storage`                 | Saves your alarms, timers, stopwatch, and uploaded background bytes on this device, and your world clocks and small settings in browser sync storage so they follow your signed-in profile. |
+| `offscreen` (Chrome only) | Lets Chrome play the alarm sound — its background service worker has no audio API of its own. Firefox's background page plays audio directly and does not need this.                        |
 
 No `host_permissions`, no analytics SDK, no account, no server Chronly talks to. The alert tones are synthesized on the fly with the Web Audio API rather than fetched, so nothing is downloaded when an alarm rings.
 

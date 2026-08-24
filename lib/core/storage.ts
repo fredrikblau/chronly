@@ -27,6 +27,7 @@ const RECORDS_KEY = 'records'
 const WORLD_CLOCKS_KEY = 'worldClocks'
 const SETTINGS_KEY = 'settings'
 const POMODORO_STATS_KEY = 'pomodoroStats'
+const BACKGROUND_IMAGE_KEY = 'backgroundImage'
 
 export class RecordStore {
   constructor(private backend: StorageBackend) {}
@@ -123,6 +124,23 @@ export class SettingsStore {
   }
 }
 
+/** Large uploaded background bytes belong in local storage, not sync quota. */
+export class BackgroundImageStore {
+  constructor(private backend: StorageBackend) {}
+
+  async get(): Promise<string | undefined> {
+    return this.backend.get<string>(BACKGROUND_IMAGE_KEY)
+  }
+
+  async set(dataUrl: string): Promise<void> {
+    await this.backend.set(BACKGROUND_IMAGE_KEY, dataUrl)
+  }
+
+  async remove(): Promise<void> {
+    await this.backend.remove(BACKGROUND_IMAGE_KEY)
+  }
+}
+
 export function createExtensionStorageBackend(area: 'local' | 'sync'): StorageBackend {
   const storageArea = browser.storage[area]
   return {
@@ -158,14 +176,8 @@ export class PomodoroStatsStore {
   }
 }
 
-export function watchStorageKey<T>(
-  key: string,
-  onChange: (value: T | undefined) => void,
-): () => void {
-  const listener = (
-    changes: Record<string, { newValue?: unknown; oldValue?: unknown }>,
-    areaName: string,
-  ) => {
+export function watchStorageKey<T>(key: string, onChange: (value: T | undefined) => void): () => void {
+  const listener = (changes: Record<string, { newValue?: unknown; oldValue?: unknown }>, areaName: string) => {
     if (areaName !== 'local' && areaName !== 'sync') return
     const change = changes[key]
     if (change) onChange(change.newValue as T | undefined)

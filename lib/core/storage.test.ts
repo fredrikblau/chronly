@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createExtensionStorageBackend,
   createMemoryStorageBackend,
+  BackgroundImageStore,
   PomodoroStatsStore,
   RecordStore,
   SettingsStore,
@@ -107,6 +108,16 @@ describe('SettingsStore', () => {
     expect(updated.theme).toBe('dark')
     expect(updated.hour12).toBe(DEFAULT_SETTINGS.hour12)
     expect(await store.get()).toEqual(updated)
+  })
+})
+
+describe('BackgroundImageStore', () => {
+  it('stores uploaded bytes independently from settings', async () => {
+    const store = new BackgroundImageStore(createMemoryStorageBackend())
+    await store.set('data:image/png;base64,AAAA')
+    expect(await store.get()).toBe('data:image/png;base64,AAAA')
+    await store.remove()
+    expect(await store.get()).toBeUndefined()
   })
 })
 
