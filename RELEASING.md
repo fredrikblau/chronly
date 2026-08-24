@@ -15,6 +15,9 @@ exercised by an automated test. Run through this list before every release
 - [ ] `npm run test:e2e` passes against a fresh `npm run build`. It loads
       `.output/chrome-mv3/` into a real Chromium, so it needs a display; on a
       headless machine run it as `xvfb-run -a npm run test:e2e`.
+      The current suite also verifies the alarm Test control creates Chrome's
+      `offscreen.html` audio document and that a running timer remains visible
+      after force-closing the MV3 service-worker target through DevTools.
 - [ ] Service-worker suspension: load the built (not dev-mode) Chrome extension,
       start a countdown, open `chrome://extensions`, click "service worker" to
       inspect it, then force-stop it. Reopen the popup — the countdown must
@@ -35,3 +38,8 @@ exercised by an automated test. Run through this list before every release
 - [ ] Bump `version` in `package.json` to match that heading.
 - [ ] Tag the release and attach the zipped builds produced by `npm run zip`
       and `npm run zip:firefox` (both land in `.output/`).
+
+`npm run lint:firefox` and `web-ext run` provide automated artifact/install
+coverage for Firefox. Firefox's remote automation intentionally does not allow
+scripted navigation into `moz-extension://` pages, so the popup, New Tab,
+audio, and restart checks above must be performed through Firefox's own UI.
