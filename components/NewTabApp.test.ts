@@ -134,6 +134,21 @@ describe('NewTabApp', () => {
     )
   })
 
+  it('falls back when stored image settings contain unsafe CSS input', async () => {
+    await seedSettings({
+      background: {
+        type: 'image',
+        value: 'https://example.test/photo.jpg);color:red;--escaped:url(x',
+        accentColor: '#8b7cf6',
+      },
+    })
+
+    const { container } = render(NewTabApp)
+    await screen.findByRole('timer')
+
+    await waitFor(() => expect(dashboard(container).style.getPropertyValue('--bg')).toBe('#0b0b0f'))
+  })
+
   it('reflects the configured theme on the dashboard', async () => {
     await seedSettings({ theme: 'light' })
 

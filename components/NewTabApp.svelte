@@ -2,7 +2,7 @@
   import { browser } from 'wxt/browser'
   import { formatTimeInZone, getDayOffset } from '../lib/core/time'
   import { createNowStore } from '../lib/ui/now'
-  import { backgroundSurface } from '../lib/ui/palette'
+  import { backgroundSurface, isSafeImageUrl } from '../lib/ui/palette'
   import { settings } from '../lib/ui/settings'
   import { worldClocks } from '../lib/ui/worldClocks'
   import ClockFace from './ClockFace.svelte'
@@ -29,7 +29,11 @@
   // An uploaded or linked image is stored as a bare URL, so it needs wrapping
   // before it can stand in for a colour or gradient in the same `background`.
   const backgroundValue = $derived(
-    $settings.background.type === 'image' ? `url(${$settings.background.value})` : $settings.background.value,
+    $settings.background.type === 'image'
+      ? isSafeImageUrl($settings.background.value)
+        ? `url(${$settings.background.value.trim()})`
+        : '#0b0b0f'
+      : $settings.background.value,
   )
 
   const clocks = $derived($worldClocks ?? [])

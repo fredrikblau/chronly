@@ -1,5 +1,25 @@
 import type { BackgroundConfig } from '../core/types'
 
+const IMAGE_PROTOCOLS = new Set(['http:', 'https:', 'data:'])
+// Semicolons are valid inside data URLs (for example `data:image/png;base64`)
+// and cannot terminate the surrounding `url(...)` function on their own.
+const UNSAFE_IN_URL = /[()\s"'\\{}<>]/
+
+/**
+ * Image settings are eventually interpolated into CSS `url(...)`. Validate at
+ * the input boundary and again at render time because extension storage can
+ * contain values written by an older version or edited through browser tools.
+ */
+export function isSafeImageUrl(value: string): boolean {
+  const url = value.trim()
+  if (!url || UNSAFE_IN_URL.test(url)) return false
+  try {
+    return IMAGE_PROTOCOLS.has(new URL(url).protocol)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Which way round a surface reads: 'dark' wants light text on it, 'light' wants
  * dark text.

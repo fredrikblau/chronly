@@ -1,6 +1,7 @@
 <script lang="ts">
   import { DEFAULT_SETTINGS } from '../lib/core/types'
   import type { BackgroundConfig } from '../lib/core/types'
+  import { isSafeImageUrl } from '../lib/ui/palette'
   import { settings, settingsActions } from '../lib/ui/settings'
 
   const GRADIENT_PRESETS = [
@@ -9,13 +10,6 @@
     { label: 'Midnight', value: 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)' },
     { label: 'Ocean', value: 'linear-gradient(135deg, #2193b0, #6dd5ed)' },
   ]
-
-  const IMAGE_PROTOCOLS = ['http:', 'https:', 'data:']
-
-  // A background that breaks out of the css url() it is interpolated into can
-  // inject arbitrary declarations into the New Tab page, so anything that could
-  // terminate the function or the declaration is refused outright.
-  const UNSAFE_IN_URL = /[()\s"'\\;{}<>]/
 
   let error = $state<string | null>(null)
 
@@ -50,19 +44,8 @@
       apply({ type: 'solid', value: DEFAULT_SETTINGS.background.value })
       return
     }
-    let parsed: URL
-    try {
-      parsed = new URL(url)
-    } catch {
-      error = 'Enter an https://, http://, or data: image URL.'
-      return
-    }
-    if (!IMAGE_PROTOCOLS.includes(parsed.protocol)) {
-      error = 'Enter an https://, http://, or data: image URL.'
-      return
-    }
-    if (UNSAFE_IN_URL.test(url)) {
-      error = 'That address contains characters that cannot be used in a background.'
+    if (!isSafeImageUrl(url)) {
+      error = 'Enter an https://, http://, or data: image URL without CSS-breaking characters.'
       return
     }
     error = null

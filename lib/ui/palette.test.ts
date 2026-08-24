@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BackgroundConfig } from '../core/types'
-import { backgroundSurface, surfaceLuminance, surfaceOf } from './palette'
+import { backgroundSurface, isSafeImageUrl, surfaceLuminance, surfaceOf } from './palette'
 
 const background = (patch: Partial<BackgroundConfig>): BackgroundConfig => ({
   type: 'solid',
@@ -83,5 +83,18 @@ describe('backgroundSurface', () => {
 
   it('reports an unreadable colour rather than guessing', () => {
     expect(backgroundSurface(background({ value: 'papayawhip' }))).toBe('unknown')
+  })
+})
+
+describe('isSafeImageUrl', () => {
+  it('accepts supported image URL schemes', () => {
+    expect(isSafeImageUrl('https://example.com/photo.jpg')).toBe(true)
+    expect(isSafeImageUrl('data:image/png;base64,AAAA')).toBe(true)
+  })
+
+  it('rejects CSS-breaking or unsupported URLs', () => {
+    expect(isSafeImageUrl('javascript:alert(1)')).toBe(false)
+    expect(isSafeImageUrl('https://example.com/a) ; color:red')).toBe(false)
+    expect(isSafeImageUrl('https://example.com/photo.jpg?caption=hello world')).toBe(false)
   })
 })
