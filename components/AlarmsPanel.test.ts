@@ -130,6 +130,18 @@ describe('AlarmsPanel', () => {
     expect(await screen.findByText('Snoozed')).toBeInTheDocument()
   })
 
+  it('shows the snoozed time instead of the original alarm time', async () => {
+    const originalTime = new Date(2026, 1, 2, 6, 0).getTime()
+    const snoozedUntil = new Date(2026, 1, 2, 6, 5).getTime()
+    const alarm = createAlarm('Wake up', originalTime, originalTime)
+    await seedStore().upsert({ ...alarm, snoozedUntil })
+
+    render(AlarmsPanel)
+
+    expect(await screen.findByText('06:05')).toBeInTheDocument()
+    expect(screen.queryByText('06:00')).toBeNull()
+  })
+
   it('opens a pre-filled Google Calendar event for an alarm', async () => {
     await seedStore().upsert(createAlarm('Wake up', new Date(2026, 1, 2, 7, 0).getTime(), MONDAY_6AM))
     const open = vi.spyOn(window, 'open').mockReturnValue(null)

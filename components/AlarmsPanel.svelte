@@ -123,7 +123,7 @@
     <ul class="list">
       {#each alarms as alarm (alarm.id)}
         <li class="alarm" class:snoozed={alarm.snoozedUntil !== null}>
-          <span class="clock">{formatAlarmClock(alarm.targetTimestamp, $settings.hour12)}</span>
+          <span class="clock">{formatAlarmClock(effectiveDueTime(alarm), $settings.hour12)}</span>
           <div class="detail">
             <div class="titleRow">
               <span class="label">{alarm.label}</span>
