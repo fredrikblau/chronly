@@ -103,6 +103,7 @@ npm run lint           # ESLint
 npm run format         # Prettier
 npm run preview:popup  # run the popup in a plain browser tab, no extension reload needed
 npm run zip            # package for the Chrome Web Store (npm run zip:firefox for AMO)
+npm run lint:firefox   # validate the built Firefox artifact with Mozilla's linter
 ```
 
 CI runs `typecheck`, `lint`, `test`, and both builds on every pull request.

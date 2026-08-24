@@ -15,6 +15,7 @@
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
     "format": "prettier --write .",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
@@ -38,6 +39,7 @@
     "prettier-plugin-svelte": "^4.1.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.66.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "web-ext": "^10.6.0"
   }
 }
