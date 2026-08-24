@@ -51,6 +51,24 @@
     error = null
     apply({ type: 'image', value: url })
   }
+
+  function setImageFile(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : ''
+      if (!isSafeImageUrl(dataUrl)) {
+        error = 'Choose a raster image such as PNG, JPEG, GIF, WebP, or AVIF.'
+        return
+      }
+      error = null
+      apply({ type: 'image', value: dataUrl })
+    }
+    reader.onerror = () => {
+      error = 'The image could not be read.'
+    }
+    reader.readAsDataURL(file)
+  }
 </script>
 
 <section class="panel" aria-labelledby="background-picker-heading">
@@ -72,6 +90,14 @@
       type="color"
       value={background.accentColor}
       oninput={(e) => setAccent(e.currentTarget.value)}
+    />
+    <label for="chronly-bg-upload">Upload image</label>
+    <input
+      id="chronly-bg-upload"
+      class="field"
+      type="file"
+      accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon"
+      onchange={(e) => setImageFile(e.currentTarget.files?.[0])}
     />
   </div>
 
@@ -112,6 +138,8 @@
 
   {#if error}
     <p class="error" role="alert">{error}</p>
+  {:else if background.type === 'image' && background.value.startsWith('data:')}
+    <p class="note">This image is stored locally in Chronly and is not fetched from a host.</p>
   {:else if background.type === 'image'}
     <!--
       The image is fetched by the browser on every New Tab paint, which tells

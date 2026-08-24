@@ -79,6 +79,29 @@ describe('BackgroundPicker', () => {
     await expectBackground({ type: 'image', value: 'https://example.com/bg.jpg' })
   })
 
+  it('stores an uploaded raster image as a local data URL', async () => {
+    render(BackgroundPicker)
+    const file = new File(['fake png bytes'], 'wallpaper.png', { type: 'image/png' })
+
+    await fireEvent.change(screen.getByLabelText('Upload image'), { target: { files: [file] } })
+
+    await waitFor(async () => {
+      const stored = (await readSettings()).background
+      expect(stored.type).toBe('image')
+      expect(stored.value).toMatch(/^data:image\/png;base64,/)
+    })
+  })
+
+  it('rejects an uploaded SVG image', async () => {
+    render(BackgroundPicker)
+    const file = new File(['<svg></svg>'], 'unsafe.svg', { type: 'image/svg+xml' })
+
+    await fireEvent.change(screen.getByLabelText('Upload image'), { target: { files: [file] } })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/raster image/i)
+    expect((await readSettings()).background.type).toBe('solid')
+  })
+
   it('rejects a URL that is not http(s) or a data URI', async () => {
     render(BackgroundPicker)
 

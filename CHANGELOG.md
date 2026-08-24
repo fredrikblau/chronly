@@ -17,6 +17,6 @@ All notable changes to Chronly are documented here. The format follows
 - Zero-permission Google Calendar links and `.ics` exports for alarms and
   Pomodoro phases.
 - A clock-focused New Tab dashboard with world-clock strip and quick access.
-- Light, dark, and automatic themes plus solid, gradient, and image
-  backgrounds.
+- Light, dark, and automatic themes plus solid, gradient, remote URL, and
+  locally uploaded image backgrounds.
 - Chrome and Firefox Manifest V3 builds from one codebase.

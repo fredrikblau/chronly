@@ -41,7 +41,7 @@ The popup is a tabbed control center: clock, alarms, timers and stopwatch, world
 - **Alarms** — one-off or repeating on chosen weekdays, with a choice of alert tone, a volume slider, a "test" button that fires the real notification and sound so you can confirm both work, a 5-minute snooze, and redundant firing (system notification _and_ sound) so one blocked channel can't cause a silent miss.
 - **Timer & stopwatch** — several countdown timers running at once, with pause/resume, quick presets, and per-timer tone and volume; plus a stopwatch with lap splits that highlights the fastest and slowest lap. Both survive the popup closing and the browser restarting.
 - **Pomodoro** — configurable focus, short-break, and long-break lengths (or one of three presets), automatic phase transitions run by the background worker rather than by an open tab, and focus-session stats kept on your device.
-- **Theme & background** — a light, dark, or automatic theme and a solid, gradient, or image background for the New Tab dashboard, plus a reduced-motion switch.
+- **Theme & background** — a light, dark, or automatic theme and a solid, gradient, remote URL, or locally uploaded image background for the New Tab dashboard, plus a reduced-motion switch.
 - **Calendar export** — add an alarm, or the remainder of the running Pomodoro phase, to Google Calendar via a prefilled link, or download an `.ics` for Outlook/Apple Calendar. No sign-in, no extra permission.
 
 One caveat worth stating up front: Firefox does not support buttons on notifications, so the Snooze/Dismiss/Pause buttons appear on Chrome only. On Firefox, closing the notification dismisses it.
