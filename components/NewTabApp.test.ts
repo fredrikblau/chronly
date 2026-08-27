@@ -43,14 +43,23 @@ const dashboard = (container: HTMLElement): HTMLElement => {
 }
 
 describe('NewTabApp', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     fakeBrowser.reset()
+    await seedSettings({ newTabEnabled: true })
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(FIXED)
   })
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('keeps the dashboard inactive until enabled in Settings', async () => {
+    await new SettingsStore(createExtensionStorageBackend('sync')).update({ newTabEnabled: false })
+    render(NewTabApp)
+
+    expect(await screen.findByRole('heading', { name: 'Chronly New Tab is off' })).toBeInTheDocument()
+    expect(screen.queryByRole('timer')).toBeNull()
   })
 
   it('renders the clock and a quick-access control', async () => {

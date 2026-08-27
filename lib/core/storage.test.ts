@@ -4,6 +4,7 @@ import {
   createExtensionStorageBackend,
   createMemoryStorageBackend,
   BackgroundImageStore,
+  CustomSoundStore,
   PomodoroStatsStore,
   RecordStore,
   SettingsStore,
@@ -118,6 +119,19 @@ describe('BackgroundImageStore', () => {
     expect(await store.get()).toBe('data:image/png;base64,AAAA')
     await store.remove()
     expect(await store.get()).toBeUndefined()
+  })
+})
+
+describe('CustomSoundStore', () => {
+  it('stores, updates, and removes imported sounds', async () => {
+    const store = new CustomSoundStore(createMemoryStorageBackend())
+    const sound = { id: 'custom-1', name: 'Bell', dataUrl: 'data:audio/ogg;base64,AAAA', mimeType: 'audio/ogg', createdAt: 1 }
+    await store.upsert(sound)
+    expect(await store.getAll()).toEqual([sound])
+    await store.upsert({ ...sound, name: 'Bell updated' })
+    expect((await store.getAll())[0]?.name).toBe('Bell updated')
+    await store.remove(sound.id)
+    expect(await store.getAll()).toEqual([])
   })
 })
 

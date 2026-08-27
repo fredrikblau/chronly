@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import {
     computeElapsedMs,
     pauseStopwatch,
@@ -9,28 +10,59 @@
   } from '../lib/core/stopwatch'
   import { createExtensionStorageBackend, StopwatchStore, watchStorageKey } from '../lib/core/storage'
   import { DEFAULT_STOPWATCH, type StopwatchState } from '../lib/core/types'
-  import { createNowStore } from '../lib/ui/now'
 
   const store = new StopwatchStore(createExtensionStorageBackend('local'))
+  let state = $state<StopwatchState>(DEFAULT_STOPWATCH)
+  let stateRevision = 0
+  let writeChain = Promise.resolve()
+  // Keep the render clock local to this panel. The persisted timestamp remains
+  // the authority when the popup is closed and reopened.
+  let elapsedMs = $state(0)
+
   // Centisecond digits need a faster tick than the wall clock's to read as a
   // stopwatch rather than a stutter.
-  const now = createNowStore(50)
+  $effect(() => {
+    const id = window.setInterval(() => (elapsedMs = computeElapsedMs(state, Date.now())), 50)
+    return () => window.clearInterval(id)
+  })
 
-  let state = $state<StopwatchState>(DEFAULT_STOPWATCH)
+  function normalizeStopwatch(value: StopwatchState | undefined): StopwatchState {
+    const status = value?.status === 'running' || value?.status === 'paused' ? value.status : 'idle'
+    const startedAt = typeof value?.startedAt === 'number' && Number.isFinite(value.startedAt) ? value.startedAt : null
+    const elapsedMsBeforeStart =
+      typeof value?.elapsedMsBeforeStart === 'number' && Number.isFinite(value.elapsedMsBeforeStart)
+        ? Math.max(0, value.elapsedMsBeforeStart)
+        : 0
+    const laps = Array.isArray(value?.laps)
+      ? value.laps.filter((lap): lap is number => typeof lap === 'number' && Number.isFinite(lap)).map((lap) => Math.max(0, lap))
+      : []
+    return { status, startedAt, elapsedMsBeforeStart, laps }
+  }
 
-  void store.get().then((stored) => {
+  async function hydrate() {
+    const revisionAtStart = stateRevision
+    const stored = normalizeStopwatch(await store.get())
+    if (revisionAtStart !== stateRevision) return
     state = stored
+    elapsedMs = computeElapsedMs(stored, Date.now())
+  }
+
+  onMount(() => {
+    void hydrate()
   })
 
   // Another view (a second popup, an options page) may own the stopwatch too;
   // storage is the single source of truth, so mirror its changes back in.
   $effect(() =>
     watchStorageKey<StopwatchState>('stopwatch', (value) => {
-      state = value ?? DEFAULT_STOPWATCH
+      if (value === undefined) return
+      const next = normalizeStopwatch(value)
+      stateRevision += 1
+      state = next
+      elapsedMs = computeElapsedMs(next, Date.now())
     }),
   )
 
-  const elapsedMs = $derived(computeElapsedMs(state, $now))
   const isRunning = $derived(state.status === 'running')
   const isPristine = $derived(state.status === 'idle' && state.laps.length === 0)
   const currentLapMs = $derived(Math.max(0, elapsedMs - totalLappedMs(state)))
@@ -71,8 +103,12 @@
   }
 
   async function commit(next: StopwatchState) {
-    state = next
-    await store.set(next)
+    stateRevision += 1
+    const normalized = normalizeStopwatch(next)
+    state = normalized
+    elapsedMs = computeElapsedMs(normalized, Date.now())
+    writeChain = writeChain.then(() => store.set(normalized))
+    await writeChain
   }
 
   function toggle() {

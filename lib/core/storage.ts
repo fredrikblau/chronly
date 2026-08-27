@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser'
-import type { PomodoroStats, SchedulableRecord, Settings, StopwatchState, WorldClockEntry } from './types'
+import type { CustomSound, PomodoroStats, SchedulableRecord, Settings, StopwatchState, WorldClockEntry } from './types'
 import { DEFAULT_POMODORO_STATS, DEFAULT_SETTINGS, DEFAULT_STOPWATCH } from './types'
 
 export interface StorageBackend {
@@ -28,6 +28,7 @@ const WORLD_CLOCKS_KEY = 'worldClocks'
 const SETTINGS_KEY = 'settings'
 const POMODORO_STATS_KEY = 'pomodoroStats'
 const BACKGROUND_IMAGE_KEY = 'backgroundImage'
+const CUSTOM_SOUNDS_KEY = 'customSounds'
 
 export class RecordStore {
   constructor(private backend: StorageBackend) {}
@@ -138,6 +139,26 @@ export class BackgroundImageStore {
 
   async remove(): Promise<void> {
     await this.backend.remove(BACKGROUND_IMAGE_KEY)
+  }
+}
+
+export class CustomSoundStore {
+  constructor(private backend: StorageBackend) {}
+
+  async getAll(): Promise<CustomSound[]> {
+    return (await this.backend.get<CustomSound[]>(CUSTOM_SOUNDS_KEY)) ?? []
+  }
+
+  async upsert(sound: CustomSound): Promise<void> {
+    const sounds = await this.getAll()
+    const index = sounds.findIndex((item) => item.id === sound.id)
+    if (index === -1) sounds.push(sound)
+    else sounds[index] = sound
+    await this.backend.set(CUSTOM_SOUNDS_KEY, sounds)
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.backend.set(CUSTOM_SOUNDS_KEY, (await this.getAll()).filter((sound) => sound.id !== id))
   }
 }
 

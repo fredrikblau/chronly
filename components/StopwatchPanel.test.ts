@@ -29,6 +29,16 @@ describe('StopwatchPanel', () => {
     expect(await screen.findByText('Pause')).toBeInTheDocument()
   })
 
+  it('updates the display while running', async () => {
+    render(StopwatchPanel)
+    await screen.findByText('00:00.00')
+
+    await fireEvent.click(screen.getByText('Start'))
+    await new Promise((resolve) => setTimeout(resolve, 120))
+
+    expect(screen.getByRole('timer')).not.toHaveTextContent('00:00.00')
+  })
+
   it('cannot lap or reset an untouched stopwatch', async () => {
     render(StopwatchPanel)
     await flush()

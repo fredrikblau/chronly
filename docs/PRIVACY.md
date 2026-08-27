@@ -10,7 +10,8 @@ the browser's extension storage. Larger operational data and uploaded
 background image bytes use local storage; small settings and world-clock
 preferences may use browser sync storage so the browser can sync them across
 signed-in profiles. Chronly does not operate that sync service and websites
-cannot read the extension storage.
+cannot read the extension storage. Chronly does not override the browser’s
+New Tab page.
 
 ## User-initiated calendar export
 

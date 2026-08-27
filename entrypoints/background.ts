@@ -1,8 +1,9 @@
 import { browser } from 'wxt/browser'
-import { playAlarmSound } from '../lib/core/audio'
+import { playAlarmSound, stopAlarmSound } from '../lib/core/audio'
 import { buildNotificationSpec, showNotification } from '../lib/core/notifications'
 import {
   computeDueRecords,
+  effectiveDueTime,
   pauseRecord,
   reconcileFiredRecord,
   snoozeAlarm,
@@ -10,12 +11,30 @@ import {
 import {
   createExtensionStorageBackend,
   PomodoroStatsStore,
+  CustomSoundStore,
   RecordStore,
 } from '../lib/core/storage'
 import type { SchedulableRecord } from '../lib/core/types'
 
 export const TICK_ALARM_NAME = 'tick'
 export const TICK_PERIOD_MINUTES = 0.5
+const RECORD_ALARM_PREFIX = 'record:'
+
+function recordAlarmName(id: string): string {
+  return `${RECORD_ALARM_PREFIX}${id}`
+}
+
+async function scheduleRecords(records: SchedulableRecord[], now: number): Promise<void> {
+  for (const record of records) {
+    if (record.notified || (record.kind !== 'alarm' && record.status !== 'running')) continue
+    const when = effectiveDueTime(record)
+    if (when <= now) continue
+    const existing = await browser.alarms.get(recordAlarmName(record.id))
+    if (!existing || existing.scheduledTime !== when) {
+      await browser.alarms.create(recordAlarmName(record.id), { when })
+    }
+  }
+}
 
 export async function ensureTickAlarm(): Promise<void> {
   const existing = await browser.alarms.get(TICK_ALARM_NAME)
@@ -32,15 +51,19 @@ export async function ensureTickAlarm(): Promise<void> {
  * would stall every remaining due record behind it.
  */
 async function fireRecord(record: SchedulableRecord): Promise<void> {
-  await showNotification(buildNotificationSpec(record))
-  void playAlarmSound(record.soundId, record.volume).catch((error: unknown) => {
+  const customSound = await new CustomSoundStore(createExtensionStorageBackend('local')).getAll()
+  const imported = customSound.find((sound) => sound.id === record.soundId)
+  void playAlarmSound(record.soundId, record.volume, record.id, true, imported?.dataUrl).catch((error: unknown) => {
     console.warn('[chronly] could not play the alarm sound', error)
   })
+  await showNotification(buildNotificationSpec(record))
 }
 
 export async function reconcileDueRecords(store: RecordStore, now: number): Promise<void> {
   const statsStore = new PomodoroStatsStore(createExtensionStorageBackend('local'))
-  const due = computeDueRecords(await store.getAll(), now)
+  const records = await store.getAll()
+  await scheduleRecords(records, now)
+  const due = computeDueRecords(records, now)
   for (const record of due) {
     try {
       await fireRecord(record)
@@ -82,6 +105,7 @@ export async function handleNotificationButton(
 
   if (record.kind === 'alarm' && buttonIndex === 0) {
     await store.upsert(snoozeAlarm(record, now))
+    void stopAlarmSound(record.id)
     await browser.notifications.clear(notificationId)
     return
   }
@@ -89,11 +113,13 @@ export async function handleNotificationButton(
   if (record.kind === 'pomodoro' && buttonIndex === 0) {
     // Pause the phase that already auto-started.
     await store.upsert(pauseRecord(record, now))
+    void stopAlarmSound(record.id)
     await browser.notifications.clear(notificationId)
     return
   }
 
   if (isTransient(record)) await store.remove(record.id)
+  void stopAlarmSound(record.id)
   await browser.notifications.clear(notificationId)
 }
 
@@ -107,6 +133,11 @@ export async function handleNotificationClosed(
   notificationId: string,
 ): Promise<void> {
   const record = await store.get(extractRecordId(notificationId))
+  // The notification may already have advanced a recurring alarm or a
+  // Pomodoro into its next state, so `notified` is not a reliable playback
+  // guard here. The notification id is the playback id; stopping an inactive
+  // key is harmless and guarantees every close path silences the ring.
+  void stopAlarmSound(record?.id ?? extractRecordId(notificationId))
   // `notified` is the guard that makes this safe to call from the snooze path:
   // snoozing clears it and then clears the notification, which fires onClosed.
   // Without this check that close would delete the alarm the user just snoozed.
@@ -125,7 +156,7 @@ export default defineBackground(() => {
   // Every listener is registered synchronously at the top level: a worker woken
   // specifically to deliver one of these events would otherwise miss it.
   browser.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name !== TICK_ALARM_NAME) return
+    if (alarm.name !== TICK_ALARM_NAME && !alarm.name.startsWith(RECORD_ALARM_PREFIX)) return
     void reconcileDueRecords(store, Date.now())
   })
 
@@ -155,5 +186,12 @@ export default defineBackground(() => {
 
   browser.runtime.onStartup.addListener(() => {
     void ensureTickAlarm()
+  })
+
+  // Schedule a newly-created or edited record immediately instead of waiting
+  // for the coarse reconciliation tick to discover it.
+  browser.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes.records) return
+    void reconcileDueRecords(store, Date.now())
   })
 })

@@ -1,6 +1,6 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { playAlarmSound } from '../lib/core/audio'
+import { playAlarmSound, stopAlarmSound } from '../lib/core/audio'
 import { createAlarm, createCountdown, createPomodoro } from '../lib/core/scheduler'
 import {
   createExtensionStorageBackend,
@@ -21,6 +21,7 @@ import {
 // is the reconciliation loop's handling of it, not playback itself.
 vi.mock('../lib/core/audio', () => ({
   playAlarmSound: vi.fn(async () => {}),
+  stopAlarmSound: vi.fn(async () => {}),
 }))
 
 const NOW = 1_770_000_000_000
@@ -31,6 +32,7 @@ function newStore(): RecordStore {
 
 beforeEach(() => {
   vi.mocked(playAlarmSound).mockReset().mockResolvedValue(undefined)
+  vi.mocked(stopAlarmSound).mockReset().mockResolvedValue(undefined)
 })
 
 describe('ensureTickAlarm', () => {
@@ -228,6 +230,7 @@ describe('handleNotificationButton', () => {
     await handleNotificationButton(store, `chronly-alarm-${alarm.id}`, 1, NOW + 5000) // Dismiss
 
     expect(await store.get(alarm.id)).toBeUndefined()
+    expect(stopAlarmSound).toHaveBeenCalledWith(alarm.id)
   })
 
   it('ignores a notification whose record is already gone', async () => {

@@ -20,10 +20,18 @@
   function update(patch: Partial<Settings>) {
     void settingsActions.update(patch)
   }
+
 </script>
 
 <section class="panel" aria-labelledby="theme-picker-heading">
   <h2 id="theme-picker-heading">Appearance</h2>
+
+  <div class="setting-intro">
+    <div>
+      <strong>New Tab</strong>
+      <p>Your browser’s default New Tab page is preserved. Chronly’s clock dashboard is available from the toolbar popup.</p>
+    </div>
+  </div>
 
   <fieldset class="group">
     <legend>Theme</legend>
@@ -112,7 +120,7 @@
     <span>Reduce motion</span>
   </label>
 
-  <p class="note">These apply here and on the New Tab dashboard.</p>
+  <p class="note">New Tab is opt-in. These settings also apply to its dashboard.</p>
 </section>
 
 <style>
@@ -233,6 +241,28 @@
 
   .note {
     margin: 0;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .setting-intro {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 0.7rem;
+    background: var(--surface);
+  }
+
+  .setting-intro strong {
+    display: block;
+    font-size: 0.8rem;
+  }
+
+  .setting-intro p {
+    margin: 0.2rem 0 0;
     font-size: 0.7rem;
     color: var(--muted);
   }

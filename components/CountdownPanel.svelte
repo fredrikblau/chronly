@@ -4,6 +4,7 @@
   import type { CountdownRecord } from '../lib/core/types'
   import { createNowStore } from '../lib/ui/now'
   import { recordActions, records } from '../lib/ui/records'
+  import SoundPicker from './SoundPicker.svelte'
 
   const now = createNowStore()
 
@@ -176,14 +177,7 @@
       {/each}
     </div>
 
-    <div class="sound-row">
-      <select aria-label="Sound" bind:value={soundId}>
-        {#each SOUND_PRESETS as preset (preset.id)}
-          <option value={preset.id}>{preset.label}</option>
-        {/each}
-      </select>
-      <input type="range" min="0" max="1" step="0.05" aria-label="Volume" bind:value={volume} />
-    </div>
+    <SoundPicker bind:soundId bind:volume />
 
     <button type="submit" class="primary" disabled={durationMs <= 0}>Start</button>
   </form>
@@ -332,25 +326,13 @@
     grid-column: 1 / -1;
   }
 
-  .presets,
-  .sound-row {
+  .presets {
     grid-column: 1 / -1;
     display: flex;
     gap: 0.35rem;
   }
 
-  .sound-row select {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .sound-row input[type='range'] {
-    flex: 1 1 40%;
-    accent-color: var(--accent, #8b7cf6);
-  }
-
-  input,
-  select {
+  input {
     padding: 0.4rem 0.5rem;
     background: var(--field, rgba(255, 255, 255, 0.06));
     border: 1px solid var(--line);
@@ -358,12 +340,6 @@
     color: inherit;
     font: inherit;
     font-size: 0.8125rem;
-  }
-
-  input[type='range'] {
-    padding: 0;
-    background: none;
-    border: none;
   }
 
   .duration {
@@ -444,7 +420,7 @@
     color: var(--accent-ink, #8b7cf6);
   }
 
-  :is(button, input, select):focus-visible {
+  :is(button, input):focus-visible {
     outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 2px;
   }

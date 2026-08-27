@@ -79,6 +79,7 @@
     { id: 'clock', label: 'Clock' },
     { id: 'alarms', label: 'Alarms' },
     { id: 'timers', label: 'Timers' },
+    { id: 'stopwatch', label: 'Stopwatch' },
     { id: 'world', label: 'World' },
     { id: 'focus', label: 'Focus' },
     { id: 'settings', label: 'Settings' },
@@ -165,6 +166,9 @@
 
     <div id="panel-timers" role="tabpanel" aria-labelledby="tab-timers" hidden={activeTab !== 'timers'} class="stacked">
       <CountdownPanel />
+    </div>
+
+    <div id="panel-stopwatch" role="tabpanel" aria-labelledby="tab-stopwatch" hidden={activeTab !== 'stopwatch'}>
       <StopwatchPanel />
     </div>
 
@@ -356,8 +360,8 @@
 
   :global(body) {
     margin: 0;
-    width: 400px;
-    min-height: 320px;
+    width: 480px;
+    min-height: 520px;
     background: var(--bg, #0b0b0f);
     font-family:
       system-ui,

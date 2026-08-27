@@ -10,6 +10,7 @@
   import { downloadIcs, openGoogleCalendarLink } from '../lib/ui/calendarAction'
   import { createNowStore } from '../lib/ui/now'
   import { recordActions, records } from '../lib/ui/records'
+  import SoundPicker from './SoundPicker.svelte'
 
   interface Preset {
     name: string
@@ -42,6 +43,8 @@
   let roundsBeforeLongBreak = $state(4)
   let label = $state('')
   let stats = $state<PomodoroStats>(DEFAULT_POMODORO_STATS)
+  let soundId = $state('default')
+  let volume = $state(0.8)
 
   $effect(() => {
     let live = true
@@ -82,7 +85,7 @@
       longBreakMs: minutes(longBreakMinutes, 15) * 60_000,
       cyclesBeforeLongBreak: minutes(roundsBeforeLongBreak, 4),
     }
-    void recordActions.upsert(createPomodoro(label.trim() || 'Pomodoro session', config, Date.now()))
+    void recordActions.upsert(createPomodoro(label.trim() || 'Pomodoro session', config, Date.now(), { soundId, volume }))
     label = ''
   }
 
@@ -300,6 +303,11 @@
           />
           <span class="unit">to long break</span>
         </label>
+      </div>
+
+      <div class="sound-field">
+        <span class="fieldLabel">Completion sound</span>
+        <SoundPicker bind:soundId bind:volume />
       </div>
 
       <button type="submit" class="primary start">Start</button>
@@ -587,6 +595,9 @@
     flex: 1;
     white-space: nowrap;
   }
+
+  .sound-field { width: 100%; }
+  .sound-field > .fieldLabel { display: block; margin-bottom: 0.35rem; font-size: 0.72rem; color: var(--muted); }
 
   .field input {
     width: 2.6rem;

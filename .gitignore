@@ -4,5 +4,8 @@ node_modules/
 .output/
 .wxt/
 *.local
+task_plan.md
+findings.md
+progress.md
 playwright-report/
 test-results/

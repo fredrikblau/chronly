@@ -1,0 +1,5 @@
+The OGG sound files in this directory are from Kenney's Interface Sounds
+asset pack, licensed under Creative Commons CC0 1.0 Universal.
+
+Source: https://kenney.nl/assets/interface-sounds
+License: https://creativecommons.org/publicdomain/zero/1.0/

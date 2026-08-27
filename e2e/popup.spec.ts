@@ -31,6 +31,30 @@ test('popup shows a live clock and can create an alarm', async ({ context, exten
   await expect(alarms.getByRole('listitem').filter({ hasText: 'Smoke test alarm' })).toBeVisible()
 })
 
+test('alarm sound picker shows built-ins and imports a custom audio file', async ({ context, extensionId }) => {
+  const page = await context.newPage()
+  await page.goto(`chrome-extension://${extensionId}/popup.html`)
+  await page.getByRole('tab', { name: 'Alarms' }).click()
+
+  const alarms = page.getByRole('tabpanel', { name: 'Alarms' })
+  const sound = alarms.locator('select[aria-label="Sound"]')
+  await expect(sound).toBeVisible()
+  await expect(sound.locator('option')).toHaveCount(8)
+
+  await alarms.locator('input[type=file]').setInputFiles({
+    name: 'morning-bell.wav',
+    mimeType: 'audio/wav',
+    buffer: Buffer.from('RIFF-fake-audio'),
+  })
+
+  await expect(sound.locator('option', { hasText: 'morning-bell' })).toBeAttached()
+  await expect(sound).toHaveValue(/custom-/)
+
+  await page.reload()
+  await page.getByRole('tab', { name: 'Alarms' }).click()
+  await expect(alarms.locator('select[aria-label="Sound"] option', { hasText: 'morning-bell' })).toBeAttached()
+})
+
 test('settings can build a custom background and pick its accent', async ({ context, extensionId }) => {
   const page = await context.newPage()
   await page.goto(`chrome-extension://${extensionId}/popup.html`)

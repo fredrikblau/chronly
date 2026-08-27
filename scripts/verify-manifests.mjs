@@ -23,7 +23,7 @@ const firefox = await readManifest('firefox')
 
 for (const [name, manifest] of Object.entries({ chrome, firefox })) {
   assert(manifest.manifest_version === 3, `${name} must be Manifest V3`)
-  assert(manifest.chrome_url_overrides?.newtab === 'newtab.html', `${name} must override the New Tab page`)
+  assert(!manifest.chrome_url_overrides?.newtab, `${name} must preserve the browser's default New Tab page`)
   assert(manifest.action?.default_popup === 'popup.html', `${name} must expose the popup`)
   assert(manifest.permissions.includes('alarms'), `${name} must request alarms permission`)
   assert(manifest.permissions.includes('notifications'), `${name} must request notifications permission`)

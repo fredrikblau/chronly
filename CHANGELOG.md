@@ -16,8 +16,11 @@ All notable changes to Chronly are documented here. The format follows
 - Automatic Pomodoro phase cycling and local session statistics.
 - Zero-permission Google Calendar links and `.ics` exports for alarms and
   Pomodoro phases.
-- A clock-focused New Tab dashboard with world-clock strip and quick access.
+- A clock-focused dashboard component with world-clock strip and quick access.
 - Light, dark, and automatic themes plus solid, preset/custom gradient, remote
   URL, and locally uploaded image backgrounds, with optional automatic accent
   extraction.
 - Chrome and Firefox Manifest V3 builds from one codebase.
+- Alarm sounds can repeat until dismissed, with clearer sound choices and a
+  dedicated, live-updating stopwatch tab.
+- The browser’s default New Tab page is preserved; Chronly does not override it.

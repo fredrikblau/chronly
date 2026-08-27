@@ -1,13 +1,20 @@
 # Chronly
 
-**The clock extension that just works.**
+**A calm, private clock and alarm workspace for your browser.**
 
-Chronly is a fast, private, open-source browser extension for Chrome and Firefox: a clean clock dashboard on your New Tab page, and a toolbar popup with world clocks, alarms, a timer/stopwatch, and Pomodoro sessions. No ads, no tracking, no account, no artificial limits.
+[![CI](https://github.com/fredrikblau/chronly/actions/workflows/ci.yml/badge.svg)](https://github.com/fredrikblau/chronly/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Chrome](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)](README.md#quick-start)
+[![Firefox](https://img.shields.io/badge/Firefox-MV3-FF7139?logo=firefoxbrowser&logoColor=white)](README.md#quick-start)
+
+Chronly is an open-source Chrome and Firefox extension for alarms, timers,
+stopwatch laps, world clocks, and focused work sessions. It has no ads,
+tracking, account, server, or artificial limits.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ![Chronly popup](docs/assets/popup-screenshot.png)
-![Chronly New Tab dashboard](docs/assets/newtab-screenshot.png)
+![Chronly alarm and sound controls](docs/assets/alarms-screenshot.png)
 
 ## Quick Start
 
@@ -16,7 +23,9 @@ Chronly is a fast, private, open-source browser extension for Chrome and Firefox
 - Chrome Web Store: not published yet
 - Firefox Add-ons: not published yet
 
-Until then, you can build and load it yourself with the steps below.
+Until then, you can build and load it yourself with the steps below. The
+project is deliberately easy to run locally so contributors can try a change
+in a real browser in a few minutes.
 
 **As a developer, running it locally:**
 
@@ -38,10 +47,11 @@ The popup is a tabbed control center: clock, alarms, timers and stopwatch, world
 
 - **Clock** — digital and analog faces, or both at once; 12- or 24-hour; optional seconds; adjustable text size and clock contrast.
 - **World clocks** — unlimited saved zones, each showing its local time, UTC offset, a plain-text difference from your own zone, and an at-a-glance "working hours / off hours / asleep" read on the people there. Meeting-planner mode lets you pick a time and see every saved zone re-rendered at it. Zones come from your browser's own time zone database, so there's no bundled city list to go stale.
-- **Alarms** — one-off or repeating on chosen weekdays, with a choice of alert tone, a volume slider, a "test" button that fires the real notification and sound so you can confirm both work, a 5-minute snooze, and redundant firing (system notification _and_ sound) so one blocked channel can't cause a silent miss.
-- **Timer & stopwatch** — several countdown timers running at once, with pause/resume, quick presets, and per-timer tone and volume; plus a stopwatch with lap splits that highlights the fastest and slowest lap. Both survive the popup closing and the browser restarting.
+- **Alarms** — one-off or repeating on chosen weekdays, with selectable alert tones, a volume slider, a "test" button, and sound that repeats until you snooze or dismiss the notification. Alarms fire redundantly (system notification _and_ sound) so one blocked channel can't cause a silent miss.
+- **Sounds** — eight gentle bundled CC0 chimes with previews, plus import of your own MP3, WAV, OGG, M4A, AAC, FLAC, or WebM file. Imported audio stays in local extension storage.
+- **Timer & stopwatch** — several countdown timers running at once, with pause/resume, quick presets, and per-timer tone and volume; plus a dedicated stopwatch tab with lap splits that highlights the fastest and slowest lap. Both survive the popup closing and the browser restarting.
 - **Pomodoro** — configurable focus, short-break, and long-break lengths (or one of three presets), automatic phase transitions run by the background worker rather than by an open tab, and focus-session stats kept on your device.
-- **Theme & background** — a light, dark, or automatic theme and a solid, preset/custom gradient, remote URL, or locally uploaded image background for the New Tab dashboard; the accent can be picked from the active background, plus a reduced-motion switch.
+- **Theme & background** — a light, dark, or automatic theme with reduced motion, adjustable text size, and clock contrast. Your browser’s default New Tab page remains unchanged.
 - **Calendar export** — add an alarm, or the remainder of the running Pomodoro phase, to Google Calendar via a prefilled link, or download an `.ics` for Outlook/Apple Calendar. No sign-in, no extra permission.
 
 One caveat worth stating up front: Firefox does not support buttons on notifications, so the Snooze/Dismiss/Pause buttons appear on Chrome only. On Firefox, closing the notification dismisses it.
@@ -71,10 +81,21 @@ Most clock/alarm/timer extensions are either bare-bones or unreliable — alarms
 - No caps on the number of alarms, timers, or world clocks you can save.
 - No tracking, no ads, no account — ever.
 
+## Contributing
+
+Good first contributions include improving accessibility, adding browser-level
+coverage, refining sound controls, and documenting manual release checks. Read
+[CONTRIBUTING.md](CONTRIBUTING.md), then look for issues labeled
+[`good first issue`](https://github.com/fredrikblau/chronly/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+Please open an issue before large architectural changes. Pull requests should
+include tests for behavior changes and keep Chronly private by default: no
+telemetry, accounts, broad host permissions, or remote runtime code.
+
 ## Project layout
 
 ```
-entrypoints/    # background worker, popup, New Tab override, offscreen audio document
+entrypoints/    # background worker, popup, and offscreen audio document
 lib/core/       # framework-agnostic logic: storage, scheduling, timezone math,
                 # calendar export, notifications, audio. Unit-tested, no UI code.
 lib/ui/         # thin Svelte store wrappers around lib/core

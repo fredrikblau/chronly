@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation and contribution guide
+    url: https://github.com/fredrikblau/chronly/blob/main/CONTRIBUTING.md
+    about: Read the local setup, testing, and pull request guidance first.

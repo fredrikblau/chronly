@@ -74,6 +74,7 @@ export interface BackgroundConfig {
 export const LOCAL_BACKGROUND_IMAGE_VALUE = 'local-image'
 
 export interface Settings {
+  newTabEnabled: boolean
   theme: 'light' | 'dark' | 'auto'
   clockMode: 'digital' | 'analog' | 'both'
   hour12: boolean
@@ -84,7 +85,16 @@ export interface Settings {
   background: BackgroundConfig
 }
 
+export interface CustomSound {
+  id: string
+  name: string
+  dataUrl: string
+  mimeType: string
+  createdAt: number
+}
+
 export const DEFAULT_SETTINGS: Settings = {
+  newTabEnabled: false,
   theme: 'auto',
   clockMode: 'digital',
   hour12: false,

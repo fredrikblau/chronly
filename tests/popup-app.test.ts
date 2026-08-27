@@ -26,6 +26,7 @@ describe('popup App', () => {
       'Clock',
       'Alarms',
       'Timers',
+      'Stopwatch',
       'World',
       'Focus',
       'Settings',

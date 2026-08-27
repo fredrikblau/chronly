@@ -15,6 +15,7 @@
   import { createNowStore } from '../lib/ui/now'
   import { records, recordActions } from '../lib/ui/records'
   import { settings } from '../lib/ui/settings'
+  import SoundPicker from './SoundPicker.svelte'
 
   // Only the relative "rings in ..." captions depend on this, and they are
   // minute-grained — a fast tick would be pure re-render cost.
@@ -74,7 +75,7 @@
   function testAlarm() {
     const at = Date.now()
     void showNotification(buildNotificationSpec(buildDraft(at, at)))
-    void playAlarmSound(soundId, volume)
+    void playAlarmSound(soundId, volume, 'preview', false)
   }
 
   /** A ring is an instant, but a calendar entry needs width — this is the block
@@ -218,28 +219,8 @@
     </fieldset>
 
     <div class="field">
-      <label for="alarm-sound">Sound</label>
-      <select id="alarm-sound" bind:value={soundId}>
-        {#each SOUND_PRESETS as preset (preset.id)}
-          <option value={preset.id}>{preset.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="alarm-volume">Volume</label>
-      <div class="slider">
-        <input
-          id="alarm-volume"
-          type="range"
-          min="0"
-          max="1"
-          step="0.05"
-          bind:value={volume}
-          aria-valuetext={`${Math.round(volume * 100)} percent`}
-        />
-        <span class="percent">{Math.round(volume * 100)}%</span>
-      </div>
+      <span class="fieldLabel">Sound</span>
+      <SoundPicker bind:soundId bind:volume />
     </div>
 
     <p class="preview" aria-live="polite">{previewCaption}</p>
@@ -455,8 +436,7 @@
     gap: 0.5rem;
   }
 
-  input,
-  select {
+  input {
     min-width: 0;
     padding: 0.4rem 0.55rem;
     border: 1px solid var(--line);
@@ -477,7 +457,6 @@
   }
 
   input:focus-visible,
-  select:focus-visible,
   button:focus-visible {
     outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 2px;
@@ -539,34 +518,11 @@
     color: var(--muted);
   }
 
-  .field select {
-    flex: 1 1 auto;
-    max-width: 60%;
-    color: var(--fg, #f5f5f7);
+  .fieldLabel {
+    flex: 0 0 auto;
   }
 
-  .slider {
-    display: flex;
-    flex: 1 1 auto;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    max-width: 60%;
-  }
-
-  input[type='range'] {
-    flex: 1 1 auto;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    accent-color: var(--accent, #8b7cf6);
-  }
-
-  .percent {
-    min-width: 2.5rem;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
+  .field :global(.sound-picker) { flex: 1 1 auto; min-width: 0; }
 
   .preview {
     margin: 0;

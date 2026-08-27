@@ -112,6 +112,14 @@
   style:--accent={$settings.background.accentColor}
   style:--font-scale={$settings.fontScale}
 >
+  {#if !$settings.newTabEnabled}
+    <main class="welcome" aria-labelledby="new-tab-welcome">
+      <div class="welcome-mark" aria-hidden="true">◷</div>
+      <h1 id="new-tab-welcome">Chronly New Tab is off</h1>
+      <p>Enable it from Chronly’s Settings whenever you want the dashboard here.</p>
+      <button type="button" class="quick" onclick={openPopup}>Open Chronly</button>
+    </main>
+  {:else}
   <main class="stage">
     <ClockFace
       now={$now}
@@ -144,6 +152,7 @@
       <p class="hint" role="status">Open Chronly from the toolbar icon for alarms, timers, and Pomodoro.</p>
     {/if}
   </footer>
+  {/if}
 </div>
 
 <style>
@@ -236,6 +245,32 @@
     align-items: center;
     gap: 0.75rem;
     text-align: center;
+  }
+
+  .welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 28rem;
+    gap: 0.75rem;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .welcome-mark {
+    color: var(--accent, #8b7cf6);
+    font-size: 3rem;
+  }
+
+  .welcome h1 {
+    margin: 0;
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 500;
+  }
+
+  .welcome p {
+    margin: 0;
+    color: var(--fg-muted);
   }
 
   .date {

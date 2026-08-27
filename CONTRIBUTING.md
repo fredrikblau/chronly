@@ -14,8 +14,9 @@ Use `npm run dev:firefox` to develop against Firefox. For a production-like
 build, use `npm run build` or `npm run build:firefox`, then load the generated
 `.output` directory in the browser's extension developer tools.
 
-The popup and New Tab page can also be previewed without reloading an
-extension: `npm run preview:popup` and `npm run preview:newtab`.
+The popup can also be previewed without reloading an extension with
+`npm run preview:popup`. The browser’s native New Tab page is intentionally
+not overridden by the current build.
 
 ## Before opening a pull request
 
@@ -50,8 +51,9 @@ without first discussing the design and privacy implications.
 
 ## Screenshots
 
-The README intentionally does not contain fabricated screenshots. If you add
-real captures, place them in `docs/assets/` and update the README links.
+Real UI captures belong in `docs/assets/`; update the README when they change.
+Do not commit screenshots containing personal data, browser profiles, or
+private file paths.
 
 ## Questions and conduct
 

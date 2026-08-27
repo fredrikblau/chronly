@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildPlaySoundMessage,
+  buildStopSoundMessage,
   isPlaySoundMessage,
+  isSafeAudioDataUrl,
+  isStopSoundMessage,
   resolveSoundPreset,
   SOUND_PRESETS,
 } from './audio'
@@ -10,9 +13,12 @@ describe('resolveSoundPreset', () => {
   it('returns the matching preset', () => {
     expect(resolveSoundPreset('gentle')).toEqual({
       id: 'gentle',
-      label: 'Gentle chime',
+      label: 'Soft sunrise',
       frequency: 523,
-      beeps: 2,
+      beeps: 3,
+      description: 'Quiet, gentle chimes',
+      waveform: 'sine',
+      sourceUrl: '/sounds/confirmation-2.ogg',
     })
   })
 
@@ -23,11 +29,13 @@ describe('resolveSoundPreset', () => {
 
 describe('buildPlaySoundMessage', () => {
   it('builds an offscreen play-sound message', () => {
-    expect(buildPlaySoundMessage('chime', 0.5)).toEqual({
+    expect(buildPlaySoundMessage('chime', 0.5, 'alarm-1', true)).toEqual({
       target: 'offscreen',
       type: 'play-sound',
       soundId: 'chime',
       volume: 0.5,
+      playbackId: 'alarm-1',
+      loop: true,
     })
   })
 })
@@ -35,6 +43,17 @@ describe('buildPlaySoundMessage', () => {
 describe('isPlaySoundMessage', () => {
   it('accepts a message it built itself', () => {
     expect(isPlaySoundMessage(buildPlaySoundMessage('chime', 0.5))).toBe(true)
+  })
+
+  it('builds and validates a stop message', () => {
+    const message = buildStopSoundMessage('alarm-1')
+    expect(message).toEqual({ target: 'offscreen', type: 'stop-sound', playbackId: 'alarm-1' })
+    expect(isStopSoundMessage(message)).toBe(true)
+  })
+
+  it('accepts safe imported audio data and rejects executable data', () => {
+    expect(isSafeAudioDataUrl('data:audio/ogg;base64,AAAA')).toBe(true)
+    expect(isSafeAudioDataUrl('data:text/html;base64,AAAA')).toBe(false)
   })
 
   it.each([

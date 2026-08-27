@@ -2,6 +2,18 @@
   "name": "chronly",
   "private": true,
   "version": "0.1.0",
+  "description": "A calm, private browser clock, alarm, timer, and focus workspace.",
+  "author": "Chronly contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fredrikblau/chronly.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fredrikblau/chronly/issues"
+  },
+  "homepage": "https://github.com/fredrikblau/chronly#readme",
+  "keywords": ["browser-extension", "clock", "alarm", "timer", "stopwatch", "pomodoro", "svelte", "wxt"],
   "type": "module",
   "scripts": {
     "dev": "wxt",
