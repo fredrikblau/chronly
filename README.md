@@ -11,8 +11,6 @@ Chronly is an open-source Chrome and Firefox extension for alarms, timers,
 stopwatch laps, world clocks, and focused work sessions. It has no ads,
 tracking, account, server, or artificial limits.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
 ![Chronly popup](docs/assets/popup-screenshot.png)
 ![Chronly alarm and sound controls](docs/assets/alarms-screenshot.png)
 
@@ -51,7 +49,7 @@ The popup is a tabbed control center: clock, alarms, timers and stopwatch, world
 - **Sounds** — eight gentle bundled CC0 chimes with previews, plus import of your own MP3, WAV, OGG, M4A, AAC, FLAC, or WebM file. Imported audio stays in local extension storage.
 - **Timer & stopwatch** — several countdown timers running at once, with pause/resume, quick presets, and per-timer tone and volume; plus a dedicated stopwatch tab with lap splits that highlights the fastest and slowest lap. Both survive the popup closing and the browser restarting.
 - **Pomodoro** — configurable focus, short-break, and long-break lengths (or one of three presets), automatic phase transitions run by the background worker rather than by an open tab, and focus-session stats kept on your device.
-- **Theme & background** — a light, dark, or automatic theme with reduced motion, adjustable text size, and clock contrast. Your browser’s default New Tab page remains unchanged.
+- **Theme & background** — a light, dark, or automatic theme with reduced motion, adjustable text size, clock contrast, and solid or gradient popup backgrounds. Your browser’s default New Tab page remains unchanged.
 - **Calendar export** — add an alarm, or the remainder of the running Pomodoro phase, to Google Calendar via a prefilled link, or download an `.ics` for Outlook/Apple Calendar. No sign-in, no extra permission.
 
 One caveat worth stating up front: Firefox does not support buttons on notifications, so the Snooze/Dismiss/Pause buttons appear on Chrome only. On Firefox, closing the notification dismisses it.
@@ -60,14 +58,14 @@ One caveat worth stating up front: Firefox does not support buttons on notificat
 
 Chronly asks for the minimum needed to do its job, and nothing else. This table is the full contents of `permissions` in the built manifest:
 
-| Permission                | Why                                                                                                                                                                                         |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `alarms`                  | Wakes the background process on a schedule so alarms, timers, and Pomodoro phases still fire after the browser has suspended it.                                                            |
-| `notifications`           | Shows the system notification when an alarm, timer, or Pomodoro phase completes.                                                                                                            |
-| `storage`                 | Saves your alarms, timers, stopwatch, and uploaded background bytes on this device, and your world clocks and small settings in browser sync storage so they follow your signed-in profile. |
-| `offscreen` (Chrome only) | Lets Chrome play the alarm sound — its background service worker has no audio API of its own. Firefox's background page plays audio directly and does not need this.                        |
+| Permission                | Why                                                                                                                                                                  |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `alarms`                  | Wakes the background process on a schedule so alarms, timers, and Pomodoro phases still fire after the browser has suspended it.                                     |
+| `notifications`           | Shows the system notification when an alarm, timer, or Pomodoro phase completes.                                                                                     |
+| `storage`                 | Saves alarms, timers, stopwatch, Pomodoro stats, and imported audio on this device; world clocks and small settings may use browser sync storage.                    |
+| `offscreen` (Chrome only) | Lets Chrome play the alarm sound — its background service worker has no audio API of its own. Firefox's background page plays audio directly and does not need this. |
 
-No `host_permissions`, no analytics SDK, no account, no server Chronly talks to. The alert tones are synthesized on the fly with the Web Audio API rather than fetched, so nothing is downloaded when an alarm rings.
+No `host_permissions`, no analytics SDK, no account, no server Chronly talks to. Alert tones are bundled with the extension, and imported audio remains in local extension storage, so nothing is downloaded when an alarm rings.
 
 See the full [privacy policy](docs/PRIVACY.md) for the storage and permission details.
 
@@ -100,7 +98,7 @@ lib/core/       # framework-agnostic logic: storage, scheduling, timezone math,
                 # calendar export, notifications, audio. Unit-tested, no UI code.
 lib/ui/         # thin Svelte store wrappers around lib/core
 components/     # shared Svelte UI (ClockFace, AlarmsPanel, WorldClockPanel, ...)
-harness/        # standalone Vite preview of the popup and New Tab pages
+harness/        # standalone Vite preview of the popup
 ```
 
 Useful scripts:
@@ -121,10 +119,6 @@ Firefox artifact lint, and the Chromium extension smoke tests on every pull
 request.
 
 Release steps live in [RELEASING.md](RELEASING.md).
-
-## Contributing
-
-Chronly is open source and contributions are very welcome — code, bug reports, translations, or just testing an alarm on a browser we haven't verified yet. See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup and how the codebase fits together, and look for issues labeled `good first issue` if you're not sure where to start.
 
 If Chronly is useful to you, a star helps other people find it.
 

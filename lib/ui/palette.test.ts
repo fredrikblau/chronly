@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BackgroundConfig } from '../core/types'
-import {
-  accentFromCss,
-  accentFromLocalImage,
-  backgroundSurface,
-  isRasterImageFile,
-  isSafeImageUrl,
-  surfaceLuminance,
-  surfaceOf,
-} from './palette'
+import { accentFromCss, backgroundSurface, surfaceLuminance, surfaceOf } from './palette'
 
 const background = (patch: Partial<BackgroundConfig>): BackgroundConfig => ({
   type: 'solid',
@@ -70,12 +62,6 @@ describe('accentFromCss', () => {
   })
 })
 
-describe('accentFromLocalImage', () => {
-  it('does not fetch remote images', async () => {
-    await expect(accentFromLocalImage('https://example.com/photo.jpg')).resolves.toBeNull()
-  })
-})
-
 describe('surfaceOf', () => {
   it('calls a dark colour dark and a light one light', () => {
     expect(surfaceOf('#0b0b0f', 'light')).toBe('dark')
@@ -103,38 +89,7 @@ describe('backgroundSurface', () => {
     ).toBe('dark')
   })
 
-  // Callers scrim an image and print light text over it; nothing can be assumed
-  // about an arbitrary photo.
-  it('treats an image as dark', () => {
-    expect(backgroundSurface(background({ type: 'image', value: 'https://example.test/very-white.png' }))).toBe('dark')
-  })
-
   it('reports an unreadable colour rather than guessing', () => {
     expect(backgroundSurface(background({ value: 'papayawhip' }))).toBe('unknown')
-  })
-})
-
-describe('isSafeImageUrl', () => {
-  it('accepts supported image URL schemes', () => {
-    expect(isSafeImageUrl('https://example.com/photo.jpg')).toBe(true)
-    expect(isSafeImageUrl('data:image/png;base64,AAAA')).toBe(true)
-  })
-
-  it('rejects CSS-breaking or unsupported URLs', () => {
-    expect(isSafeImageUrl('javascript:alert(1)')).toBe(false)
-    expect(isSafeImageUrl('data:text/html,<h1>not an image</h1>')).toBe(false)
-    expect(isSafeImageUrl('data:image/svg+xml,<svg></svg>')).toBe(false)
-    expect(isSafeImageUrl('https://example.com/a) ; color:red')).toBe(false)
-    expect(isSafeImageUrl('https://example.com/photo.jpg?caption=hello world')).toBe(false)
-  })
-})
-
-describe('isRasterImageFile', () => {
-  it('checks a PNG signature instead of trusting only the MIME type', async () => {
-    const png = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'x.png', {
-      type: 'image/png',
-    })
-    expect(await isRasterImageFile(png)).toBe(true)
-    expect(await isRasterImageFile(new File(['<svg></svg>'], 'x.png', { type: 'image/png' }))).toBe(false)
   })
 })

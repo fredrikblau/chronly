@@ -31,7 +31,7 @@ exercised by an automated test. Run through this list before every release
       notification fires (not zero, not a replay).
 - [ ] Firefox: against the current `.output/firefox-mv3/` build, load the
       extension via `about:debugging` → "Load Temporary Add-on" and check the
-      New Tab override, the popup, alarm audio, and that records and settings
+      popup, alarm audio, the native New Tab page, and that records and settings
       survive a browser restart.
 - [ ] Update `CHANGELOG.md`: move the `[Unreleased]` entries under a new
       version heading with today's date.
@@ -41,5 +41,5 @@ exercised by an automated test. Run through this list before every release
 
 `npm run lint:firefox` and `web-ext run` provide automated artifact/install
 coverage for Firefox. Firefox's remote automation intentionally does not allow
-scripted navigation into `moz-extension://` pages, so the popup, New Tab,
-audio, and restart checks above must be performed through Firefox's own UI.
+scripted navigation into `moz-extension://` pages, so the popup, audio, and
+restart checks above must be performed through Firefox's own UI.

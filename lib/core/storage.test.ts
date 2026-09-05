@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createExtensionStorageBackend,
   createMemoryStorageBackend,
-  BackgroundImageStore,
   CustomSoundStore,
   PomodoroStatsStore,
   RecordStore,
@@ -110,22 +109,27 @@ describe('SettingsStore', () => {
     expect(updated.hour12).toBe(DEFAULT_SETTINGS.hour12)
     expect(await store.get()).toEqual(updated)
   })
-})
 
-describe('BackgroundImageStore', () => {
-  it('stores uploaded bytes independently from settings', async () => {
-    const store = new BackgroundImageStore(createMemoryStorageBackend())
-    await store.set('data:image/png;base64,AAAA')
-    expect(await store.get()).toBe('data:image/png;base64,AAAA')
-    await store.remove()
-    expect(await store.get()).toBeUndefined()
+  it('replaces a legacy image background that the popup cannot display', async () => {
+    const backend = createMemoryStorageBackend()
+    await backend.set('settings', {
+      ...DEFAULT_SETTINGS,
+      background: { type: 'image', value: 'https://example.test/bg.jpg', accentColor: '#ffffff' },
+    })
+    expect((await new SettingsStore(backend).get()).background).toEqual(DEFAULT_SETTINGS.background)
   })
 })
 
 describe('CustomSoundStore', () => {
   it('stores, updates, and removes imported sounds', async () => {
     const store = new CustomSoundStore(createMemoryStorageBackend())
-    const sound = { id: 'custom-1', name: 'Bell', dataUrl: 'data:audio/ogg;base64,AAAA', mimeType: 'audio/ogg', createdAt: 1 }
+    const sound = {
+      id: 'custom-1',
+      name: 'Bell',
+      dataUrl: 'data:audio/ogg;base64,AAAA',
+      mimeType: 'audio/ogg',
+      createdAt: 1,
+    }
     await store.upsert(sound)
     expect(await store.getAll()).toEqual([sound])
     await store.upsert({ ...sound, name: 'Bell updated' })

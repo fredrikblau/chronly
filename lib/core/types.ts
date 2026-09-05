@@ -64,17 +64,12 @@ export interface WorldClockEntry {
 }
 
 export interface BackgroundConfig {
-  type: 'solid' | 'gradient' | 'image'
-  // `local-image` refers to the raster bytes kept in storage.local; URL values
-  // remain small enough to live with the synced settings record.
-  value: string // css color, css gradient, image URL, or LOCAL_BACKGROUND_IMAGE_VALUE
+  type: 'solid' | 'gradient'
+  value: string
   accentColor: string
 }
 
-export const LOCAL_BACKGROUND_IMAGE_VALUE = 'local-image'
-
 export interface Settings {
-  newTabEnabled: boolean
   theme: 'light' | 'dark' | 'auto'
   clockMode: 'digital' | 'analog' | 'both'
   hour12: boolean
@@ -94,7 +89,6 @@ export interface CustomSound {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  newTabEnabled: false,
   theme: 'auto',
   clockMode: 'digital',
   hour12: false,

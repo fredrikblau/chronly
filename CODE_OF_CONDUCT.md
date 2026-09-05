@@ -23,9 +23,6 @@ standards and will communicate reasons for moderation when appropriate.
 
 This code applies in all community spaces and when someone officially
 represents the project. Report abusive or unacceptable behavior to
-`conduct@chronly.example`. Reports will be reviewed promptly and fairly.
-
-Before the project is published, replace this placeholder with a monitored
-maintainer address.
+`ahrariamir@proton.me`. Reports will be reviewed promptly and fairly.
 
 This code is adapted from the [Contributor Covenant, version 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html).

@@ -121,20 +121,6 @@ describe('popup App appearance', () => {
     expect(root(container).style.getPropertyValue('--bg')).toBe('#f6f6f9')
   })
 
-  it('never paints an image background behind the controls', async () => {
-    await seedSettings({
-      theme: 'dark',
-      background: { type: 'image', value: 'https://example.test/a.jpg', accentColor: '#00ff00' },
-    })
-
-    const { container } = render(App)
-
-    // The settings store keeps its last value between subscriptions, so waiting
-    // on a value unique to this test is what proves the seeded one has landed.
-    await waitFor(() => expect(root(container).style.getPropertyValue('--accent')).toBe('#00ff00'))
-    expect(root(container).style.getPropertyValue('--bg')).toBe('#0b0b0f')
-  })
-
   it('publishes the accent so every panel inherits it', async () => {
     await seedSettings({ background: { type: 'solid', value: '#0b0b0f', accentColor: '#ff0000' } })
 

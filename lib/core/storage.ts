@@ -27,7 +27,6 @@ const RECORDS_KEY = 'records'
 const WORLD_CLOCKS_KEY = 'worldClocks'
 const SETTINGS_KEY = 'settings'
 const POMODORO_STATS_KEY = 'pomodoroStats'
-const BACKGROUND_IMAGE_KEY = 'backgroundImage'
 const CUSTOM_SOUNDS_KEY = 'customSounds'
 
 export class RecordStore {
@@ -114,7 +113,11 @@ export class SettingsStore {
 
   async get(): Promise<Settings> {
     const stored = await this.backend.get<Settings>(SETTINGS_KEY)
-    return { ...DEFAULT_SETTINGS, ...stored }
+    const background =
+      stored?.background?.type === 'solid' || stored?.background?.type === 'gradient'
+        ? stored.background
+        : DEFAULT_SETTINGS.background
+    return { ...DEFAULT_SETTINGS, ...stored, background }
   }
 
   async update(patch: Partial<Settings>): Promise<Settings> {
@@ -122,23 +125,6 @@ export class SettingsStore {
     const next = { ...current, ...patch }
     await this.backend.set(SETTINGS_KEY, next)
     return next
-  }
-}
-
-/** Large uploaded background bytes belong in local storage, not sync quota. */
-export class BackgroundImageStore {
-  constructor(private backend: StorageBackend) {}
-
-  async get(): Promise<string | undefined> {
-    return this.backend.get<string>(BACKGROUND_IMAGE_KEY)
-  }
-
-  async set(dataUrl: string): Promise<void> {
-    await this.backend.set(BACKGROUND_IMAGE_KEY, dataUrl)
-  }
-
-  async remove(): Promise<void> {
-    await this.backend.remove(BACKGROUND_IMAGE_KEY)
   }
 }
 
@@ -158,7 +144,10 @@ export class CustomSoundStore {
   }
 
   async remove(id: string): Promise<void> {
-    await this.backend.set(CUSTOM_SOUNDS_KEY, (await this.getAll()).filter((sound) => sound.id !== id))
+    await this.backend.set(
+      CUSTOM_SOUNDS_KEY,
+      (await this.getAll()).filter((sound) => sound.id !== id),
+    )
   }
 }
 

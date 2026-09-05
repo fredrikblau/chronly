@@ -35,19 +35,9 @@
     $settings.theme === 'auto' ? (prefersLight ? 'light' : 'dark') : $settings.theme,
   )
 
-  /**
-   * The popup is a 400px control surface rather than a canvas, so it only takes
-   * the saved background on when that background reads the same way round as
-   * the palette. The default is near-black: painting it under a user who asked
-   * for Light would print near-black text on near-black, which is exactly the
-   * trap the New Tab dashboard sidesteps by measuring the background. An image
-   * is never painted here — dense controls need a plain surface, and fetching
-   * it would tell whoever hosts it every time the toolbar button is clicked.
-   */
+  /** Only paint a custom background when its contrast matches the palette. */
   const canvas = $derived(
-    $settings.background.type !== 'image' && backgroundSurface($settings.background) === surface
-      ? $settings.background.value
-      : SURFACE_BG[surface],
+    backgroundSurface($settings.background) === surface ? $settings.background.value : SURFACE_BG[surface],
   )
 
   const accent = $derived($settings.background.accentColor)

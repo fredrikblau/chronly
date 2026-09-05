@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { DEFAULT_SETTINGS, LOCAL_BACKGROUND_IMAGE_VALUE } from '../lib/core/types'
-  import { backgroundImage, backgroundImageActions } from '../lib/ui/backgroundImage'
   import type { BackgroundConfig } from '../lib/core/types'
-  import { accentFromCss, accentFromLocalImage, isRasterImageFile, isSafeImageUrl } from '../lib/ui/palette'
+  import { accentFromCss } from '../lib/ui/palette'
   import { settings, settingsActions } from '../lib/ui/settings'
 
   const GRADIENT_PRESETS = [
@@ -18,11 +16,7 @@
   let customAngle = $state(135)
 
   const background = $derived($settings.background)
-  const localImage = $derived($backgroundImage ?? '')
-  const solidValue = $derived(background.type === 'solid' ? background.value : DEFAULT_SETTINGS.background.value)
-  const imageValue = $derived(
-    background.type === 'image' && background.value !== LOCAL_BACKGROUND_IMAGE_VALUE ? background.value : '',
-  )
+  const solidValue = $derived(background.type === 'solid' ? background.value : '#0b0b0f')
 
   function apply(patch: Partial<BackgroundConfig>) {
     void settingsActions.update({ background: { ...background, ...patch } })
@@ -30,13 +24,11 @@
 
   function setSolid(color: string) {
     error = null
-    void backgroundImageActions.clear()
     apply({ type: 'solid', value: color })
   }
 
   function setGradient(value: string) {
     error = null
-    void backgroundImageActions.clear()
     apply({ type: 'gradient', value })
   }
 
@@ -46,77 +38,17 @@
 
   function applyCustomGradient() {
     error = null
-    void backgroundImageActions.clear()
     apply({ type: 'gradient', value: `linear-gradient(${customAngle}deg, ${customStart}, ${customEnd})` })
   }
 
-  async function extractAccent() {
-    const extracted =
-      background.type === 'image'
-        ? await accentFromLocalImage(background.value === LOCAL_BACKGROUND_IMAGE_VALUE ? localImage : background.value)
-        : accentFromCss(background.value)
+  function extractAccent() {
+    const extracted = accentFromCss(background.value)
     if (!extracted) {
-      error = 'Accent extraction is available for solid, gradient, and uploaded images.'
+      error = 'The background colour could not be read.'
       return
     }
     error = null
     apply({ accentColor: extracted })
-  }
-
-  function setImage(raw: string) {
-    const url = raw.trim()
-    if (url === '') {
-      // Emptying the field is how an image is removed; falling back to the
-      // default surface keeps the page readable instead of leaving `url()`.
-      error = null
-      void backgroundImageActions.clear()
-      apply({ type: 'solid', value: DEFAULT_SETTINGS.background.value })
-      return
-    }
-    if (!isSafeImageUrl(url)) {
-      error = 'Enter an https://, http://, or data: image URL without CSS-breaking characters.'
-      return
-    }
-    if (url.toLowerCase().startsWith('data:')) {
-      error = null
-      void backgroundImageActions
-        .set(url)
-        .then(() => apply({ type: 'image', value: LOCAL_BACKGROUND_IMAGE_VALUE }))
-        .catch(() => {
-          error = 'The image could not be stored locally.'
-        })
-      return
-    }
-    error = null
-    void backgroundImageActions.clear()
-    apply({ type: 'image', value: url })
-  }
-
-  async function setImageFile(file: File | undefined) {
-    if (!file) return
-    if (!(await isRasterImageFile(file))) {
-      error = 'Choose a raster image such as PNG, JPEG, GIF, WebP, or AVIF.'
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === 'string' ? reader.result : ''
-      if (!isSafeImageUrl(dataUrl)) {
-        error = 'Choose a raster image such as PNG, JPEG, GIF, WebP, or AVIF.'
-        return
-      }
-      error = null
-      void backgroundImageActions
-        .set(dataUrl)
-        .then(() => apply({ type: 'image', value: LOCAL_BACKGROUND_IMAGE_VALUE }))
-        .catch(() => {
-          error = 'The image could not be stored locally.'
-        })
-    }
-    reader.onerror = () => {
-      error = 'The image could not be read.'
-    }
-    reader.readAsDataURL(file)
   }
 </script>
 
@@ -139,14 +71,6 @@
       type="color"
       value={background.accentColor}
       oninput={(e) => setAccent(e.currentTarget.value)}
-    />
-    <label for="chronly-bg-upload">Upload image</label>
-    <input
-      id="chronly-bg-upload"
-      class="field"
-      type="file"
-      accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon"
-      onchange={(e) => setImageFile(e.currentTarget.files?.[0])}
     />
   </div>
 
@@ -178,40 +102,10 @@
     <button type="button" class="action" onclick={applyCustomGradient}>Apply custom gradient</button>
   </fieldset>
 
-  <div class="image">
-    <label for="chronly-bg-image">Image URL</label>
-    <input
-      id="chronly-bg-image"
-      class="field"
-      type="url"
-      inputmode="url"
-      autocomplete="off"
-      placeholder="https://example.com/photo.jpg"
-      value={imageValue}
-      onchange={(e) => setImage(e.currentTarget.value)}
-    />
-  </div>
-
   <button type="button" class="action" onclick={extractAccent}>Auto-pick accent from background</button>
-
-  <!--
-    Said plainly because the two surfaces treat this differently on purpose: the
-    dashboard is a canvas, the popup is a dense control panel that only takes a
-    background on when the theme can be read over it.
-  -->
-  <p class="note">The New Tab dashboard always uses this; the popup follows when it suits the theme.</p>
 
   {#if error}
     <p class="error" role="alert">{error}</p>
-  {:else if background.type === 'image' && (background.value === LOCAL_BACKGROUND_IMAGE_VALUE || background.value.startsWith('data:'))}
-    <p class="note">This image is stored locally in Chronly and is not fetched from a host.</p>
-  {:else if background.type === 'image'}
-    <!--
-      The image is fetched by the browser on every New Tab paint, which tells
-      whoever hosts it that the tab was opened. Worth saying out loud in an
-      extension whose pitch is that it keeps to itself.
-    -->
-    <p class="note">This image is loaded from its host each time a new tab opens.</p>
   {/if}
 </section>
 
@@ -288,13 +182,6 @@
     box-shadow: 0 0 0 1px var(--accent, #8b7cf6);
   }
 
-  .image {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.8rem;
-  }
-
   .custom-gradient {
     display: flex;
     flex-direction: column;
@@ -345,34 +232,13 @@
     outline-offset: 1px;
   }
 
-  .field {
-    font: inherit;
-    font-size: 0.8rem;
-    color: inherit;
-    background: var(--field, rgba(0, 0, 0, 0.35));
-    border: 1px solid var(--border);
-    border-radius: 0.45rem;
-    padding: 0.35rem 0.5rem;
-    min-width: 0;
-  }
-
-  .field::placeholder {
-    color: var(--fg-faint, rgba(245, 245, 247, 0.35));
-  }
-
   .error {
     margin: 0;
     font-size: 0.72rem;
     color: var(--danger, #f3948f);
   }
 
-  .note {
-    margin: 0;
-    font-size: 0.7rem;
-    color: var(--muted);
-  }
-
-  :is(.field, .gradient, .swatch):focus-visible {
+  :is(.gradient, .swatch):focus-visible {
     outline: 2px solid var(--accent, #8b7cf6);
     outline-offset: 1px;
   }

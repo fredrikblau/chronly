@@ -13,13 +13,21 @@
     "url": "https://github.com/fredrikblau/chronly/issues"
   },
   "homepage": "https://github.com/fredrikblau/chronly#readme",
-  "keywords": ["browser-extension", "clock", "alarm", "timer", "stopwatch", "pomodoro", "svelte", "wxt"],
+  "keywords": [
+    "browser-extension",
+    "clock",
+    "alarm",
+    "timer",
+    "stopwatch",
+    "pomodoro",
+    "svelte",
+    "wxt"
+  ],
   "type": "module",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox --mv3",
     "preview:popup": "vite --config harness/vite.config.ts",
-    "preview:newtab": "vite --config harness/vite.config.ts --open /newtab.html",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox --mv3",
     "verify:manifests": "node scripts/verify-manifests.mjs",
@@ -35,8 +43,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "svelte": "^5.56.8",
-    "wxt": "^0.21.4"
+    "svelte": "^5.56.8"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -53,6 +60,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.66.0",
     "vitest": "^4.1.10",
-    "web-ext": "^10.6.0"
+    "web-ext": "^10.6.0",
+    "wxt": "^0.21.4"
   }
 }

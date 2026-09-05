@@ -6,8 +6,8 @@ send your data to the project maintainers.
 ## What stays on your device
 
 Alarms, timers, Pomodoro sessions, world clocks, and settings are stored with
-the browser's extension storage. Larger operational data and uploaded
-background image bytes use local storage; small settings and world-clock
+the browser's extension storage. Larger operational data and imported audio
+bytes use local storage; small settings and world-clock
 preferences may use browser sync storage so the browser can sync them across
 signed-in profiles. Chronly does not operate that sync service and websites
 cannot read the extension storage. Chronly does not override the browser’s
