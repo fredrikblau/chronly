@@ -2,10 +2,24 @@ import { defineConfig } from 'wxt'
 
 export default defineConfig({
   modules: ['@wxt-dev/module-svelte'],
+  zip: {
+    includeSources: [
+      'assets/**',
+      'components/**',
+      'entrypoints/**',
+      'lib/**',
+      'public/**',
+      'package.json',
+      'package-lock.json',
+      'README.md',
+      'tsconfig.json',
+      'wxt.config.ts',
+    ],
+  },
   manifest: ({ browser }) => ({
     name: 'Chronly',
     description:
-      'A fast, private, open-source clock: world clocks, alarms, timers, and Pomodoro that actually work.',
+      'Private world clocks, alarms, timers, stopwatch laps, and Pomodoro sessions that keep working when the popup closes.',
     permissions: ['alarms', 'notifications', 'storage', ...(browser === 'chrome' ? ['offscreen'] : [])],
     browser_specific_settings: {
       gecko: {

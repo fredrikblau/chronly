@@ -39,6 +39,20 @@ To load a built version manually:
 2. **Chrome:** open `chrome://extensions`, enable "Developer mode", click "Load unpacked", and select `.output/chrome-mv3/`.
 3. **Firefox:** open `about:debugging#/runtime/this-firefox`, click "Load Temporary Add-on", and select any file inside `.output/firefox-mv3/`.
 
+### Firefox source review build
+
+AMO reviewers can use Mozilla's default Ubuntu 24.04 environment with Node
+24.14.0 and npm 11.9.0. From the source archive root:
+
+```bash
+npm ci
+npm run build:firefox
+```
+
+The reviewable extension is written to `.output/firefox-mv3/`. The build uses
+only the open-source packages pinned in `package-lock.json`; it needs no
+network service after `npm ci` completes.
+
 ## Features
 
 The popup is a tabbed control center: clock, alarms, timers and stopwatch, world clocks, Pomodoro, and settings.
@@ -119,6 +133,8 @@ Firefox artifact lint, and the Chromium extension smoke tests on every pull
 request.
 
 Release steps live in [RELEASING.md](RELEASING.md).
+Store copy, reviewer notes, and image requirements live in
+[docs/STORE_LISTING.md](docs/STORE_LISTING.md).
 
 If Chronly is useful to you, a star helps other people find it.
 

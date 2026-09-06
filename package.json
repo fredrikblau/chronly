@@ -28,6 +28,7 @@
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox --mv3",
     "preview:popup": "vite --config harness/vite.config.ts",
+    "assets:store": "node scripts/generate-store-assets.mjs",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox --mv3",
     "verify:manifests": "node scripts/verify-manifests.mjs",

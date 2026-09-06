@@ -7,6 +7,10 @@ exercised by an automated test. Run through this list before every release
 
 ## Every release
 
+- [ ] Review the copy, privacy answers, reviewer notes, and asset status in
+      [`docs/STORE_LISTING.md`](docs/STORE_LISTING.md).
+- [ ] Run `npm run assets:store` after changing the popup screenshots, icon, or
+      listing copy.
 - [ ] `npm run typecheck && npm run lint && npm test && npm run build && npm run build:firefox` all pass locally.
 - [ ] `npm run lint:firefox` reports zero Firefox artifact errors after
       `npm run build:firefox` (the Svelte runtime may emit a non-failing generic

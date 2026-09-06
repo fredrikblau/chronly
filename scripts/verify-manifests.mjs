@@ -23,6 +23,7 @@ const firefox = await readManifest('firefox')
 
 for (const [name, manifest] of Object.entries({ chrome, firefox })) {
   assert(manifest.manifest_version === 3, `${name} must be Manifest V3`)
+  assert(manifest.description.length <= 132, `${name} description must fit the store summary limit`)
   assert(!manifest.chrome_url_overrides?.newtab, `${name} must preserve the browser's default New Tab page`)
   assert(manifest.action?.default_popup === 'popup.html', `${name} must expose the popup`)
   assert(manifest.permissions.includes('alarms'), `${name} must request alarms permission`)
@@ -36,7 +37,10 @@ assert(await exists('.output/chrome-mv3/offscreen.html'), 'Chrome must include t
 
 assert(!firefox.permissions.includes('offscreen'), 'Firefox must not request offscreen permission')
 assert(firefox.background?.scripts?.includes('background.js'), 'Firefox must use the event-page background script')
-assert(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required?.includes('none'), 'Firefox must declare no data collection')
+assert(
+  firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required?.includes('none'),
+  'Firefox must declare no data collection',
+)
 assert(!(await exists('.output/firefox-mv3/offscreen.html')), 'Firefox must exclude the offscreen document')
 
 console.log('Manifest checks passed for Chrome and Firefox')
