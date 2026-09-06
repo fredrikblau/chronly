@@ -35,6 +35,10 @@ async function render(filename, width, height, body) {
       .promo { width: 100%; height: 100%; display: grid; place-items: center; background: radial-gradient(circle, rgb(124 92 220 / 0.55), transparent 58%); }
       .promo img { width: 176px; height: 176px; }
       .promo.small img { width: 128px; height: 128px; }
+      .social { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 56px; padding: 96px; }
+      .social img { width: 192px; height: 192px; }
+      .social h1 { margin: 0; font-size: 96px; line-height: 1; letter-spacing: -4px; }
+      .social p { margin: 18px 0 0; color: #c9c3df; font-size: 30px; }
       .listing { width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 520px; align-items: center; gap: 80px; padding: 64px 110px; }
       .copy img { width: 74px; height: 74px; }
       .copy h1 { max-width: 560px; margin: 28px 0 18px; font-size: 58px; line-height: 1.04; letter-spacing: -2.4px; }
@@ -55,6 +59,12 @@ await render(
 )
 await render('chrome-promo-marquee.png', 1400, 560, `<main class="promo"><img src="${promoIcon}" alt="Chronly"></main>`)
 await render(
+  'github-social-preview.png',
+  1280,
+  640,
+  `<main class="social"><img src="${promoIcon}" alt=""><section><h1>Chronly</h1><p>Private time tools for Chrome and Firefox</p></section></main>`,
+)
+await render(
   'chrome-screenshot-clock.png',
   1280,
   800,
@@ -68,4 +78,4 @@ await render(
 )
 
 await browser.close()
-console.log('Generated Chrome Web Store assets in docs/store-assets')
+console.log('Generated store and social assets in docs/store-assets')

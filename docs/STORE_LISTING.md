@@ -80,10 +80,14 @@ Run `npm run assets:store` to rebuild the generated images.
 | Alarm screenshot | `docs/store-assets/chrome-screenshot-alarms.png` | 1280×800 |
 | Small promo tile | `docs/store-assets/chrome-promo-small.png`       | 440×280  |
 | Marquee promo    | `docs/store-assets/chrome-promo-marquee.png`     | 1400×560 |
+| GitHub preview   | `docs/store-assets/github-social-preview.png`    | 1280×640 |
 
 The screenshots embed current popup captures. Update
 `docs/assets/popup-screenshot.png` and `docs/assets/alarms-screenshot.png`
 before regeneration when the UI changes.
+
+Repository admins upload `github-social-preview.png` from **Settings → General
+→ Social preview**.
 
 ## Submission gates
 
