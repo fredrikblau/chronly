@@ -57,13 +57,11 @@
         mimeType: file.type || 'audio/mpeg',
         createdAt: Date.now(),
       }
-      pendingSounds = [...pendingSounds, sound]
-      soundId = sound.id
       try {
         await soundActions.upsert(sound)
+        pendingSounds = [...pendingSounds, sound]
+        soundId = sound.id
       } catch {
-        pendingSounds = pendingSounds.filter((candidate) => candidate.id !== sound.id)
-        soundId = SOUND_PRESETS[0].id
         error = 'Could not save that sound. Check the extension storage and try again.'
       }
     }
