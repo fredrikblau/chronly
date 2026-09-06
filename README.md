@@ -99,10 +99,9 @@ Chronly treats reliability as its primary feature.
 
 ## Contributing
 
-Good first contributions include improving accessibility, adding browser-level
-coverage, refining sound controls, and documenting manual release checks. Read
-[CONTRIBUTING.md](CONTRIBUTING.md), then look for issues labeled
-[`good first issue`](https://github.com/fredrikblau/chronly/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+Pick a scoped [`good first issue`](https://github.com/fredrikblau/chronly/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22),
+or run one [RC10 browser test](https://github.com/fredrikblau/chronly/issues/5)
+without writing code. Read [CONTRIBUTING.md](CONTRIBUTING.md) before you start.
 
 Please open an issue before large architectural changes. Pull requests should
 include tests for behavior changes and keep Chronly private by default: no
