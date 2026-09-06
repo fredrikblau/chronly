@@ -25,6 +25,9 @@ All notable changes to Chronly are documented here. The format follows
 
 ### Fixed
 
+- Chronly serializes alarm, timer, and Pomodoro changes across popup and
+  background contexts so concurrent edits, deletions, and delivery updates do
+  not overwrite each other.
 - Chronly serializes imported-sound changes so concurrent imports and removals
   preserve each file. If storage rejects removal, Chronly keeps the selected sound and shows a retryable error.
 - Chronly serializes appearance updates so rapid changes preserve each setting.

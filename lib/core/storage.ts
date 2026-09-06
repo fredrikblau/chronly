@@ -36,6 +36,13 @@ export type SettingsPatch = Omit<Partial<Settings>, 'background'> & {
 export class RecordStore {
   constructor(private backend: StorageBackend) {}
 
+  private mutate<T>(mutation: () => Promise<T>): Promise<T> {
+    // Popup and background realms coordinate through their shared extension origin.
+    return typeof navigator === 'undefined' || !navigator.locks
+      ? mutation()
+      : navigator.locks.request(RECORDS_KEY, mutation)
+  }
+
   async getAll(): Promise<SchedulableRecord[]> {
     const map = await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)
     return map ? Object.values(map) : []
@@ -46,10 +53,12 @@ export class RecordStore {
     return map?.[id]
   }
 
-  async upsert(record: SchedulableRecord): Promise<void> {
-    const map = (await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)) ?? {}
-    map[record.id] = record
-    await this.backend.set(RECORDS_KEY, map)
+  upsert(record: SchedulableRecord): Promise<void> {
+    return this.mutate(async () => {
+      const map = (await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)) ?? {}
+      map[record.id] = record
+      await this.backend.set(RECORDS_KEY, map)
+    })
   }
 
   /**
@@ -60,18 +69,22 @@ export class RecordStore {
    * deleted records or clobbering a user's edit.
    */
   async replaceIfCurrent(record: SchedulableRecord, expectedUpdatedAt: number): Promise<boolean> {
-    const map = await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)
-    const current = map?.[record.id]
-    if (!current || current.updatedAt !== expectedUpdatedAt) return false
-    map[record.id] = record
-    await this.backend.set(RECORDS_KEY, map)
-    return true
+    return this.mutate(async () => {
+      const map = await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)
+      const current = map?.[record.id]
+      if (!current || current.updatedAt !== expectedUpdatedAt) return false
+      map[record.id] = record
+      await this.backend.set(RECORDS_KEY, map)
+      return true
+    })
   }
 
-  async remove(id: string): Promise<void> {
-    const map = (await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)) ?? {}
-    delete map[id]
-    await this.backend.set(RECORDS_KEY, map)
+  remove(id: string): Promise<void> {
+    return this.mutate(async () => {
+      const map = (await this.backend.get<Record<string, SchedulableRecord>>(RECORDS_KEY)) ?? {}
+      delete map[id]
+      await this.backend.set(RECORDS_KEY, map)
+    })
   }
 }
 

@@ -36,7 +36,26 @@ const sampleAlarm: AlarmRecord = {
   updatedAt: 0,
 }
 
+function installTestLockManager(): void {
+  let chain = Promise.resolve()
+  Object.defineProperty(navigator, 'locks', {
+    configurable: true,
+    value: {
+      request(name: string, callback: (lock: Lock) => unknown) {
+        const result = chain.then(() => callback({ name, mode: 'exclusive' } as Lock))
+        chain = result.then(
+          () => undefined,
+          () => undefined,
+        )
+        return result
+      },
+    },
+  })
+}
+
 describe('RecordStore', () => {
+  beforeEach(installTestLockManager)
+
   it('starts empty and returns undefined for unknown ids', async () => {
     const store = new RecordStore(createMemoryStorageBackend())
     expect(await store.getAll()).toEqual([])
@@ -67,6 +86,61 @@ describe('RecordStore', () => {
     await store.remove(sampleAlarm.id)
     expect(await store.replaceIfCurrent(sampleAlarm, sampleAlarm.updatedAt)).toBe(false)
     expect(await store.get(sampleAlarm.id)).toBeUndefined()
+  })
+
+  it('preserves concurrent changes across store instances', async () => {
+    const memory = createMemoryStorageBackend()
+    const backend: StorageBackend = {
+      async get<T>(key: string) {
+        const value = await memory.get<T>(key)
+        return value === undefined ? undefined : structuredClone(value)
+      },
+      set: (key, value) => memory.set(key, structuredClone(value)),
+      remove: (key) => memory.remove(key),
+    }
+    const popup = new RecordStore(backend)
+    const background = new RecordStore(backend)
+    const second = { ...sampleAlarm, id: 'alarm-2', label: 'Second alarm' }
+    await popup.upsert(sampleAlarm)
+
+    await Promise.all([popup.upsert(second), background.remove(sampleAlarm.id)])
+
+    expect(await popup.getAll()).toEqual([second])
+  })
+
+  it('does not resurrect a record deleted during background replacement', async () => {
+    const memory = createMemoryStorageBackend()
+    await memory.set('records', { [sampleAlarm.id]: sampleAlarm })
+    let replacementStarted!: () => void
+    let releaseReplacement!: () => void
+    const started = new Promise<void>((resolve) => (replacementStarted = resolve))
+    const release = new Promise<void>((resolve) => (releaseReplacement = resolve))
+    const backend: StorageBackend = {
+      async get<T>(key: string) {
+        const value = await memory.get<T>(key)
+        return value === undefined ? undefined : structuredClone(value)
+      },
+      async set(key, value) {
+        const records = value as Record<string, AlarmRecord>
+        if (records[sampleAlarm.id]?.label === 'Updated by tick') {
+          replacementStarted()
+          await release
+        }
+        await memory.set(key, structuredClone(value))
+      },
+      remove: (key) => memory.remove(key),
+    }
+    const background = new RecordStore(backend)
+    const popup = new RecordStore(backend)
+    const replacement = background.replaceIfCurrent({ ...sampleAlarm, label: 'Updated by tick' }, sampleAlarm.updatedAt)
+    await started
+    const removal = popup.remove(sampleAlarm.id)
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    releaseReplacement()
+    await Promise.all([replacement, removal])
+
+    expect(await popup.get(sampleAlarm.id)).toBeUndefined()
   })
 })
 

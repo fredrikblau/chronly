@@ -10,6 +10,9 @@ test('popup shows a live clock and can create an alarm', async ({ context, exten
   const page = await context.newPage()
   await page.goto(`chrome-extension://${extensionId}/popup.html`)
 
+  expect(await page.evaluate(() => typeof navigator.locks?.request)).toBe('function')
+  expect(await context.serviceWorkers()[0]!.evaluate(() => typeof navigator.locks?.request)).toBe('function')
+
   // The clock panel is the default tab; its digital readout carries role="timer".
   await expect(page.getByRole('tabpanel', { name: 'Clock' }).getByRole('timer')).toBeVisible()
 
