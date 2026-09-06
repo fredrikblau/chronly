@@ -96,8 +96,13 @@
    *  to wake them. The preview record is never stored. */
   function testAlarm() {
     const at = Date.now()
-    void showNotification(buildNotificationSpec(buildDraft(at, at)))
-    void playAlarmSound(soundId, volume, 'preview', false)
+    error = null
+    void Promise.all([
+      showNotification(buildNotificationSpec(buildDraft(at, at))),
+      playAlarmSound(soundId, volume, 'preview', false),
+    ]).catch(() => {
+      error = 'Could not show the alarm preview. Check notification and audio access, then try again.'
+    })
   }
 
   /** A ring is an instant, but a calendar entry needs width — this is the block

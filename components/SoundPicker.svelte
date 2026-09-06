@@ -27,7 +27,16 @@
   ])
 
   function test() {
-    void playAlarmSound(soundId, volume, 'preview', false, allCustomSounds.find((sound) => sound.id === soundId)?.dataUrl)
+    error = ''
+    void playAlarmSound(
+      soundId,
+      volume,
+      'preview',
+      false,
+      allCustomSounds.find((sound) => sound.id === soundId)?.dataUrl,
+    ).catch(() => {
+      error = 'Could not play that sound. Try another sound or check audio access.'
+    })
   }
 
   function importSound() {

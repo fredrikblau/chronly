@@ -225,4 +225,13 @@ describe('AlarmsPanel', () => {
     expect(options).toMatchObject({ title: 'Standup' })
     expect(await seedStore().getAll()).toEqual([])
   })
+
+  it('reports a failed alarm preview', async () => {
+    vi.spyOn(fakeBrowser.notifications, 'create').mockRejectedValue(new Error('notifications unavailable'))
+
+    render(AlarmsPanel)
+    await fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not show the alarm preview')
+  })
 })

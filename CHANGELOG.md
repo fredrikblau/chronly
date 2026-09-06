@@ -25,6 +25,8 @@ All notable changes to Chronly are documented here. The format follows
 
 ### Fixed
 
+- You see an accessible error when an alarm notification or sound preview fails,
+  so you can fix browser access before relying on an alarm.
 - Chronly blocks popup controls until saved data loads. Chronly removes editable
   fallback values and shows recovery guidance after a read failure.
 - Stopwatch persistence recovers after a rejected save. Failed audio tasks

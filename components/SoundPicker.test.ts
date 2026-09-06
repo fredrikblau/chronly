@@ -1,12 +1,21 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { playAlarmSound } from '../lib/core/audio'
 import { createExtensionStorageBackend, CustomSoundStore } from '../lib/core/storage'
 import { soundActions } from '../lib/ui/sounds'
 import SoundPicker from './SoundPicker.svelte'
 
+vi.mock('../lib/core/audio', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/core/audio')>()),
+  playAlarmSound: vi.fn(async () => {}),
+}))
+
 describe('SoundPicker', () => {
-  beforeEach(() => fakeBrowser.reset())
+  beforeEach(() => {
+    fakeBrowser.reset()
+    vi.mocked(playAlarmSound).mockReset().mockResolvedValue(undefined)
+  })
   afterEach(() => vi.restoreAllMocks())
 
   it('imports an audio file and selects it', async () => {
@@ -66,5 +75,14 @@ describe('SoundPicker', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove')
     expect(screen.getByRole('combobox', { name: 'Sound' })).toHaveValue(sound.id)
     expect(screen.getByRole('button', { name: 'Remove' })).toBeEnabled()
+  })
+
+  it('reports a failed sound preview', async () => {
+    vi.mocked(playAlarmSound).mockRejectedValue(new Error('audio unavailable'))
+
+    render(SoundPicker)
+    await fireEvent.click(screen.getByRole('button', { name: 'Play selected sound' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not play that sound')
   })
 })
