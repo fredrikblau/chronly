@@ -1,6 +1,6 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
-import { fireEvent, render, screen } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createExtensionStorageBackend, StopwatchStore } from '../lib/core/storage'
 import type { StopwatchState } from '../lib/core/types'
 import StopwatchPanel from './StopwatchPanel.svelte'
@@ -20,6 +20,8 @@ describe('StopwatchPanel', () => {
   beforeEach(() => {
     fakeBrowser.reset()
   })
+
+  afterEach(() => vi.restoreAllMocks())
 
   it('starts at 00:00.00 and toggles its button label', async () => {
     render(StopwatchPanel)
@@ -115,5 +117,17 @@ describe('StopwatchPanel', () => {
     await flush()
 
     expect(await screen.findByText('00:01.23')).toBeInTheDocument()
+  })
+
+  it('reports a failed write and saves the next action', async () => {
+    vi.spyOn(fakeBrowser.storage.local, 'set').mockRejectedValueOnce(new Error('storage unavailable'))
+    render(StopwatchPanel)
+    await flush()
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the stopwatch')
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
+    await waitFor(async () => expect((await store().get()).status).toBe('paused'))
   })
 })

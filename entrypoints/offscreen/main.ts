@@ -18,32 +18,39 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   const playback = { stopped: false }
   active.set(message.playbackId, playback)
   void (async () => {
-    do {
-      const audioUrl = message.audioDataUrl && isSafeAudioDataUrl(message.audioDataUrl)
-        ? message.audioDataUrl
-        : resolveSoundPreset(message.soundId).sourceUrl
-      if (audioUrl) {
-        const audio = new Audio(audioUrl)
-        audio.volume = Math.min(Math.max(message.volume, 0), 1)
-        audio.loop = message.loop
-        audioElements.set(message.playbackId, audio)
-        try {
-          await audio.play()
-          if (message.loop) await new Promise<void>((resolve) => {
-            audio.addEventListener('pause', () => resolve(), { once: true })
-          })
-        } catch {
-          // Some valid MIME types are still rejected by a browser's decoder.
-          // Keep the alarm audible with the selected built-in tone.
-          audio.pause()
-          audioElements.delete(message.playbackId)
+    try {
+      do {
+        const audioUrl =
+          message.audioDataUrl && isSafeAudioDataUrl(message.audioDataUrl)
+            ? message.audioDataUrl
+            : resolveSoundPreset(message.soundId).sourceUrl
+        if (audioUrl) {
+          const audio = new Audio(audioUrl)
+          audio.volume = Math.min(Math.max(message.volume, 0), 1)
+          audio.loop = message.loop
+          audioElements.set(message.playbackId, audio)
+          try {
+            await audio.play()
+            if (message.loop)
+              await new Promise<void>((resolve) => {
+                audio.addEventListener('pause', () => resolve(), { once: true })
+              })
+          } catch {
+            // Some valid MIME types are still rejected by a browser's decoder.
+            // Keep the alarm audible with the selected built-in tone.
+            audio.pause()
+            audioElements.delete(message.playbackId)
+            await playPresetLocally(message.soundId, message.volume)
+          }
+        } else {
           await playPresetLocally(message.soundId, message.volume)
         }
-      } else {
-        await playPresetLocally(message.soundId, message.volume)
-      }
-    } while (message.loop && !playback.stopped)
-    active.delete(message.playbackId)
-    audioElements.delete(message.playbackId)
+      } while (message.loop && !playback.stopped)
+    } catch (error) {
+      console.warn('[chronly] could not play sound in the offscreen document', message.playbackId, error)
+    } finally {
+      active.delete(message.playbackId)
+      audioElements.delete(message.playbackId)
+    }
   })()
 })

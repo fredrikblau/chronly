@@ -10,6 +10,7 @@
   import { downloadIcs, openGoogleCalendarLink } from '../lib/ui/calendarAction'
   import { createNowStore } from '../lib/ui/now'
   import { recordActions, records } from '../lib/ui/records'
+  import { loadStorage } from '../lib/ui/storageLoad'
   import SoundPicker from './SoundPicker.svelte'
 
   interface Preset {
@@ -50,7 +51,7 @@
 
   $effect(() => {
     let live = true
-    void statsStore.get().then((value) => {
+    loadStorage('Pomodoro stats', statsStore.get(), (value) => {
       if (live) stats = value
     })
     // The worker credits a finished focus session straight to storage, so the

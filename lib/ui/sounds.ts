@@ -1,11 +1,12 @@
 import { readable } from 'svelte/store'
 import { createExtensionStorageBackend, CustomSoundStore, watchStorageKey } from '../core/storage'
 import type { CustomSound } from '../core/types'
+import { loadStorage } from './storageLoad'
 
 const store = new CustomSoundStore(createExtensionStorageBackend('local'))
 
 export const customSounds = readable<CustomSound[]>([], (set) => {
-  void store.getAll().then(set)
+  loadStorage('custom sounds', store.getAll(), set)
   return watchStorageKey<CustomSound[]>('customSounds', (value) => set(value ?? []))
 })
 

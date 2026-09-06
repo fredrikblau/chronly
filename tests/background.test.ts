@@ -9,6 +9,7 @@ import {
   extractRecordId,
   handleNotificationButton,
   handleNotificationClosed,
+  observeBackgroundTask,
   reconcileDueRecords,
   TICK_ALARM_NAME,
   TICK_PERIOD_MINUTES,
@@ -26,6 +27,18 @@ const NOW = 1_770_000_000_000
 function newStore(): RecordStore {
   return new RecordStore(createExtensionStorageBackend('local'))
 }
+
+describe('observeBackgroundTask', () => {
+  it('logs a rejected listener task with its context', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const error = new Error('storage unavailable')
+
+    observeBackgroundTask(Promise.reject(error), 'could not reconcile records', 'tick')
+    await Promise.resolve()
+
+    expect(warn).toHaveBeenCalledWith('[chronly] could not reconcile records', 'tick', error)
+  })
+})
 
 beforeEach(() => {
   vi.mocked(playAlarmSound).mockReset().mockResolvedValue(undefined)

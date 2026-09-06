@@ -160,7 +160,9 @@ async function playTone(frequency: number, volume: number, durationMs: number, w
     oscillator.start(start)
     oscillator.stop(end)
     oscillator.onended = () => {
-      void context.close()
+      void context.close().catch((error: unknown) => {
+        console.warn('[chronly] could not close audio context', error)
+      })
       resolve()
     }
   })

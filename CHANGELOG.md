@@ -25,6 +25,10 @@ All notable changes to Chronly are documented here. The format follows
 
 ### Fixed
 
+- Chronly blocks popup controls until saved data loads. A read failure removes
+  editable fallback values and shows recovery guidance.
+- Stopwatch persistence recovers after a rejected save. Failed audio tasks
+  release their playback ID for retry, and background listener logs name the failed action.
 - Alarm, timer, and Pomodoro controls now keep draft values and show a retryable
   error when browser storage rejects a change. Timer restart uses one write, so
   a failed restart cannot remove the existing timer.

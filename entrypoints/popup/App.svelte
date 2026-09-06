@@ -10,8 +10,10 @@
   import { createNowStore } from '../../lib/ui/now'
   import { backgroundSurface, surfaceOf } from '../../lib/ui/palette'
   import { settings } from '../../lib/ui/settings'
+  import { beginStorageLoad, storageLoadState } from '../../lib/ui/storageLoad'
 
   const now = createNowStore()
+  beginStorageLoad()
 
   // The plain surfaces the popup falls back to when the saved background is not
   // one it can paint. They are the two ends of the palette below.
@@ -107,80 +109,101 @@
   style:--accent={accent}
   style:--on-accent={onAccent}
 >
-  <div class="tabs" role="tablist" aria-label="Chronly sections">
-    {#each TABS as tab, index (tab.id)}
-      <button
-        id="tab-{tab.id}"
-        role="tab"
-        type="button"
-        class="tab"
-        class:active={activeTab === tab.id}
-        aria-selected={activeTab === tab.id}
-        aria-controls="panel-{tab.id}"
-        tabindex={activeTab === tab.id ? 0 : -1}
-        onclick={() => (activeTab = tab.id)}
-        onkeydown={(event) => onTabKeydown(event, index)}
-      >
-        {tab.label}
-      </button>
-    {/each}
-  </div>
+  {#if $storageLoadState === 'error'}
+    <p class="load-state error" role="alert">
+      Chronly could not load your saved data. Close and reopen the popup to try again.
+    </p>
+  {:else}
+    {#if $storageLoadState === 'loading'}
+      <p class="load-state" role="status">Loading saved data…</p>
+    {/if}
+    <fieldset
+      class="app-content"
+      disabled={$storageLoadState === 'loading'}
+      aria-busy={$storageLoadState === 'loading'}
+    >
+      <div class="tabs" role="tablist" aria-label="Chronly sections">
+        {#each TABS as tab, index (tab.id)}
+          <button
+            id="tab-{tab.id}"
+            role="tab"
+            type="button"
+            class="tab"
+            class:active={activeTab === tab.id}
+            aria-selected={activeTab === tab.id}
+            aria-controls="panel-{tab.id}"
+            tabindex={activeTab === tab.id ? 0 : -1}
+            onclick={() => (activeTab = tab.id)}
+            onkeydown={(event) => onTabKeydown(event, index)}
+          >
+            {tab.label}
+          </button>
+        {/each}
+      </div>
 
-  <!--
+      <!--
     Panels stay mounted and are hidden rather than removed. The stores in
     lib/ui are module-level readables that stop tracking storage once their
     last subscriber goes away, so unmounting on every tab switch would leave a
     remounted panel briefly showing stale records.
   -->
-  <main>
-    <div
-      id="panel-clock"
-      role="tabpanel"
-      aria-labelledby="tab-clock"
-      hidden={activeTab !== 'clock'}
-      class="clock-panel"
-    >
-      <ClockFace
-        now={$now}
-        hour12={$settings.hour12}
-        showSeconds={$settings.showSeconds}
-        mode={$settings.clockMode}
-        contrast={$settings.clockContrast}
-      />
-      <p class="date">{longDate}</p>
-    </div>
+      <main>
+        <div
+          id="panel-clock"
+          role="tabpanel"
+          aria-labelledby="tab-clock"
+          hidden={activeTab !== 'clock'}
+          class="clock-panel"
+        >
+          <ClockFace
+            now={$now}
+            hour12={$settings.hour12}
+            showSeconds={$settings.showSeconds}
+            mode={$settings.clockMode}
+            contrast={$settings.clockContrast}
+          />
+          <p class="date">{longDate}</p>
+        </div>
 
-    <div id="panel-alarms" role="tabpanel" aria-labelledby="tab-alarms" hidden={activeTab !== 'alarms'}>
-      <AlarmsPanel />
-    </div>
+        <div id="panel-alarms" role="tabpanel" aria-labelledby="tab-alarms" hidden={activeTab !== 'alarms'}>
+          <AlarmsPanel />
+        </div>
 
-    <div id="panel-timers" role="tabpanel" aria-labelledby="tab-timers" hidden={activeTab !== 'timers'} class="stacked">
-      <CountdownPanel />
-    </div>
+        <div
+          id="panel-timers"
+          role="tabpanel"
+          aria-labelledby="tab-timers"
+          hidden={activeTab !== 'timers'}
+          class="stacked"
+        >
+          <CountdownPanel />
+        </div>
 
-    <div id="panel-stopwatch" role="tabpanel" aria-labelledby="tab-stopwatch" hidden={activeTab !== 'stopwatch'}>
-      <StopwatchPanel />
-    </div>
+        <div id="panel-stopwatch" role="tabpanel" aria-labelledby="tab-stopwatch" hidden={activeTab !== 'stopwatch'}>
+          <StopwatchPanel />
+        </div>
 
-    <div id="panel-world" role="tabpanel" aria-labelledby="tab-world" hidden={activeTab !== 'world'}>
-      <WorldClockPanel />
-    </div>
+        <div id="panel-world" role="tabpanel" aria-labelledby="tab-world" hidden={activeTab !== 'world'}>
+          <WorldClockPanel />
+        </div>
 
-    <div id="panel-focus" role="tabpanel" aria-labelledby="tab-focus" hidden={activeTab !== 'focus'}>
-      <PomodoroPanel />
-    </div>
+        <div id="panel-focus" role="tabpanel" aria-labelledby="tab-focus" hidden={activeTab !== 'focus'}>
+          <PomodoroPanel />
+        </div>
 
-    <div
-      id="panel-settings"
-      role="tabpanel"
-      aria-labelledby="tab-settings"
-      hidden={activeTab !== 'settings'}
-      class="stacked"
-    >
-      <ThemePicker />
-      <BackgroundPicker />
-    </div>
-  </main>
+        <div
+          id="panel-settings"
+          role="tabpanel"
+          aria-labelledby="tab-settings"
+          hidden={activeTab !== 'settings'}
+          class="stacked"
+        >
+          <ThemePicker />
+          <BackgroundPicker />
+        </div>
+      </main>
+    </fieldset>
+  {/if}
 </div>
 
 <style>
@@ -265,6 +288,30 @@
     z-index: 2;
     /* Panels scroll under the strip, so it cannot be transparent. */
     background: var(--chrome);
+  }
+
+  .app-content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .app-content:disabled {
+    opacity: 0.35;
+  }
+
+  .load-state {
+    margin: 1.5rem;
+    color: var(--fg-muted);
+    text-align: center;
+  }
+
+  .load-state.error {
+    color: var(--danger);
   }
 
   .tab {

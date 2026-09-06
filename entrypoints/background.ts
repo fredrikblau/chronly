@@ -15,6 +15,12 @@ export const TICK_ALARM_NAME = 'tick'
 export const TICK_PERIOD_MINUTES = 0.5
 const RECORD_ALARM_PREFIX = 'record:'
 
+export function observeBackgroundTask(task: Promise<unknown>, failure: string, ...context: unknown[]): void {
+  void task.catch((error: unknown) => {
+    console.warn(`[chronly] ${failure}`, ...context, error)
+  })
+}
+
 function recordAlarmName(id: string): string {
   return `${RECORD_ALARM_PREFIX}${id}`
 }
@@ -65,9 +71,11 @@ export async function ensureTickAlarm(): Promise<void> {
 async function fireRecord(record: SchedulableRecord): Promise<void> {
   const customSound = await new CustomSoundStore(createExtensionStorageBackend('local')).getAll()
   const imported = customSound.find((sound) => sound.id === record.soundId)
-  void playAlarmSound(record.soundId, record.volume, record.id, true, imported?.dataUrl).catch((error: unknown) => {
-    console.warn('[chronly] could not play the alarm sound', error)
-  })
+  observeBackgroundTask(
+    playAlarmSound(record.soundId, record.volume, record.id, true, imported?.dataUrl),
+    'could not play the alarm sound',
+    record.id,
+  )
   await showNotification(buildNotificationSpec(record))
 }
 
@@ -159,22 +167,24 @@ export default defineBackground(() => {
   // listener registration, and a throw in any one of them would abort this
   // function and silently orphan every registration after it — including this
   // one, which is what keeps alarms firing at all.
-  void ensureTickAlarm()
+  observeBackgroundTask(ensureTickAlarm(), 'could not ensure the tick alarm')
 
   // Every listener is registered synchronously at the top level: a worker woken
   // specifically to deliver one of these events would otherwise miss it.
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name !== TICK_ALARM_NAME && !alarm.name.startsWith(RECORD_ALARM_PREFIX)) return
-    void reconcileDueRecords(store, Date.now())
+    observeBackgroundTask(reconcileDueRecords(store, Date.now()), 'could not reconcile scheduled records', alarm.name)
   })
 
   // Firefox has no notification buttons and does not define this event at all;
   // touching it there throws. Its dismissal path is onClosed instead.
   if (browser.notifications.onButtonClicked) {
     browser.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
-      void handleNotificationButton(store, notificationId, buttonIndex, Date.now()).catch((error: unknown) => {
-        console.warn('[chronly] could not handle notification button', notificationId, error)
-      })
+      observeBackgroundTask(
+        handleNotificationButton(store, notificationId, buttonIndex, Date.now()),
+        'could not handle notification button',
+        notificationId,
+      )
     })
   }
 
@@ -182,32 +192,41 @@ export default defineBackground(() => {
     // Clicking the body acknowledges the notification. Clearing it routes
     // through onClosed, which owns the cleanup.
     browser.notifications.onClicked.addListener((notificationId) => {
-      void browser.notifications.clear(notificationId)
+      observeBackgroundTask(
+        browser.notifications.clear(notificationId),
+        'could not clear clicked notification',
+        notificationId,
+      )
     })
   }
 
   browser.notifications.onClosed.addListener((notificationId) => {
-    void handleNotificationClosed(store, notificationId).catch((error: unknown) => {
-      console.warn('[chronly] could not handle notification close', notificationId, error)
-    })
+    observeBackgroundTask(
+      handleNotificationClosed(store, notificationId),
+      'could not handle notification close',
+      notificationId,
+    )
   })
 
   browser.runtime.onInstalled.addListener(() => {
-    void ensureTickAlarm()
+    observeBackgroundTask(ensureTickAlarm(), 'could not ensure the tick alarm after install')
   })
 
   browser.runtime.onStartup.addListener(() => {
-    void ensureTickAlarm()
+    observeBackgroundTask(ensureTickAlarm(), 'could not ensure the tick alarm after startup')
   })
 
   // Schedule a newly-created or edited record immediately instead of waiting
   // for the coarse reconciliation tick to discover it.
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local' || !changes.records) return
-    void cleanupRemovedRecords(
-      changes.records.oldValue as Record<string, SchedulableRecord> | undefined,
-      changes.records.newValue as Record<string, SchedulableRecord> | undefined,
+    observeBackgroundTask(
+      cleanupRemovedRecords(
+        changes.records.oldValue as Record<string, SchedulableRecord> | undefined,
+        changes.records.newValue as Record<string, SchedulableRecord> | undefined,
+      ),
+      'could not clean up removed records',
     )
-    void reconcileDueRecords(store, Date.now())
+    observeBackgroundTask(reconcileDueRecords(store, Date.now()), 'could not reconcile changed records')
   })
 })

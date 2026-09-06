@@ -2,12 +2,13 @@ import { readable } from 'svelte/store'
 import { createExtensionStorageBackend, SettingsStore, watchStorageKey, type SettingsPatch } from '../core/storage'
 import { DEFAULT_SETTINGS } from '../core/types'
 import type { Settings } from '../core/types'
+import { loadStorage } from './storageLoad'
 
 // Settings sync across devices — small, infrequently written.
 const store = new SettingsStore(createExtensionStorageBackend('sync'))
 
 export const settings = readable<Settings>(DEFAULT_SETTINGS, (set) => {
-  void store.get().then(set)
+  loadStorage('settings', store.get(), set)
   return watchStorageKey<Settings>('settings', (value) => set({ ...DEFAULT_SETTINGS, ...value }))
 })
 

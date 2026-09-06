@@ -1,6 +1,6 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createExtensionStorageBackend, SettingsStore } from '../lib/core/storage'
 import type { Settings } from '../lib/core/types'
 import App from '../entrypoints/popup/App.svelte'
@@ -19,6 +19,8 @@ describe('popup App', () => {
   beforeEach(() => {
     fakeBrowser.reset()
   })
+
+  afterEach(() => vi.restoreAllMocks())
 
   it('exposes every section as a tab', () => {
     render(App)
@@ -74,6 +76,30 @@ describe('popup App', () => {
     render(App)
     const focusable = screen.getAllByRole('tab').filter((t) => t.getAttribute('tabindex') === '0')
     expect(focusable).toHaveLength(1)
+  })
+
+  it('blocks controls until saved data finishes loading', async () => {
+    let finishRead: (value: Record<string, unknown>) => void = () => undefined
+    const pendingRead = new Promise<Record<string, unknown>>((resolve) => {
+      finishRead = resolve
+    })
+    vi.spyOn(fakeBrowser.storage.sync, 'get').mockReturnValueOnce(pendingRead as never)
+
+    render(App)
+    expect(screen.getByRole('tab', { name: 'Clock' })).toBeDisabled()
+
+    finishRead({})
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Clock' })).not.toBeDisabled())
+  })
+
+  it('blocks the popup when saved data cannot load', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(fakeBrowser.storage.sync, 'get').mockRejectedValueOnce(new Error('storage unavailable'))
+
+    render(App)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Chronly could not load your saved data')
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 })
 

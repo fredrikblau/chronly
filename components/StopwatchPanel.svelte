@@ -10,11 +10,13 @@
   } from '../lib/core/stopwatch'
   import { createExtensionStorageBackend, StopwatchStore, watchStorageKey } from '../lib/core/storage'
   import { DEFAULT_STOPWATCH, type StopwatchState } from '../lib/core/types'
+  import { failStorageLoad, finishStorageLoad } from '../lib/ui/storageLoad'
 
   const store = new StopwatchStore(createExtensionStorageBackend('local'))
   let state = $state<StopwatchState>(DEFAULT_STOPWATCH)
   let stateRevision = 0
   let writeChain = Promise.resolve()
+  let error = $state<string | null>(null)
   // Keep the render clock local to this panel. The persisted timestamp remains
   // the authority when the popup is closed and reopened.
   let elapsedMs = $state(0)
@@ -41,7 +43,14 @@
 
   async function hydrate() {
     const revisionAtStart = stateRevision
-    const stored = normalizeStopwatch(await store.get())
+    let stored: StopwatchState
+    try {
+      stored = normalizeStopwatch(await store.get())
+    } catch (error) {
+      failStorageLoad('stopwatch', error)
+      return
+    }
+    finishStorageLoad('stopwatch')
     if (revisionAtStart !== stateRevision) return
     state = stored
     elapsedMs = computeElapsedMs(stored, Date.now())
@@ -107,8 +116,14 @@
     const normalized = normalizeStopwatch(next)
     state = normalized
     elapsedMs = computeElapsedMs(normalized, Date.now())
-    writeChain = writeChain.then(() => store.set(normalized))
-    await writeChain
+    error = null
+    const write = writeChain.then(() => store.set(normalized))
+    writeChain = write.catch(() => undefined)
+    try {
+      await write
+    } catch {
+      error = 'Could not save the stopwatch. Try again.'
+    }
   }
 
   function toggle() {
@@ -147,6 +162,8 @@
     <button type="button" class="ghost" onclick={lap} disabled={!isRunning}>Lap</button>
     <button type="button" class="ghost" onclick={reset} disabled={isPristine}>Reset</button>
   </div>
+
+  {#if error}<p class="error" role="alert">{error}</p>{/if}
 
   {#if lapRows.length > 0}
     <ol class="laps" aria-label="Recorded laps">
@@ -226,6 +243,12 @@
     display: grid;
     grid-template-columns: 1.4fr 1fr 1fr;
     gap: 0.4rem;
+  }
+
+  .error {
+    margin: 0;
+    color: var(--danger, #fca5a5);
+    font-size: 0.75rem;
   }
 
   button {
