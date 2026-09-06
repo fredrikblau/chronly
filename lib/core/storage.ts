@@ -146,25 +146,33 @@ export class SettingsStore {
 }
 
 export class CustomSoundStore {
+  private writeChain = Promise.resolve()
+
   constructor(private backend: StorageBackend) {}
 
   async getAll(): Promise<CustomSound[]> {
     return (await this.backend.get<CustomSound[]>(CUSTOM_SOUNDS_KEY)) ?? []
   }
 
-  async upsert(sound: CustomSound): Promise<void> {
-    const sounds = await this.getAll()
-    const index = sounds.findIndex((item) => item.id === sound.id)
-    if (index === -1) sounds.push(sound)
-    else sounds[index] = sound
-    await this.backend.set(CUSTOM_SOUNDS_KEY, sounds)
+  private update(change: (sounds: CustomSound[]) => CustomSound[]): Promise<void> {
+    const write = this.writeChain.then(async () => {
+      await this.backend.set(CUSTOM_SOUNDS_KEY, change(await this.getAll()))
+    })
+    this.writeChain = write.catch(() => undefined)
+    return write
   }
 
-  async remove(id: string): Promise<void> {
-    await this.backend.set(
-      CUSTOM_SOUNDS_KEY,
-      (await this.getAll()).filter((sound) => sound.id !== id),
-    )
+  upsert(sound: CustomSound): Promise<void> {
+    return this.update((sounds) => {
+      const index = sounds.findIndex((item) => item.id === sound.id)
+      if (index === -1) sounds.push(sound)
+      else sounds[index] = sound
+      return sounds
+    })
+  }
+
+  remove(id: string): Promise<void> {
+    return this.update((sounds) => sounds.filter((sound) => sound.id !== id))
   }
 }
 

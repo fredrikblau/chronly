@@ -40,4 +40,31 @@ describe('SoundPicker', () => {
     finishWrite()
     expect(await screen.findByRole('option', { name: /slow-save/i })).toBeInTheDocument()
   })
+
+  it('keeps the selected sound when removal fails', async () => {
+    const sound = {
+      id: 'custom-1',
+      name: 'Bell',
+      dataUrl: 'data:audio/ogg;base64,AAAA',
+      mimeType: 'audio/ogg',
+      createdAt: 1,
+    }
+    await new CustomSoundStore(createExtensionStorageBackend('local')).upsert(sound)
+    let rejectRemoval: (reason?: unknown) => void = () => undefined
+    vi.spyOn(soundActions, 'remove').mockImplementation(() => {
+      const removal = new Promise<void>((_resolve, reject) => (rejectRemoval = reject))
+      void removal.catch(() => undefined)
+      return removal
+    })
+    render(SoundPicker, { soundId: sound.id })
+    await screen.findByRole('option', { name: /Bell/i })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    expect(screen.getByRole('button', { name: 'Removing…' })).toBeDisabled()
+    rejectRemoval(new Error('storage unavailable'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove')
+    expect(screen.getByRole('combobox', { name: 'Sound' })).toHaveValue(sound.id)
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeEnabled()
+  })
 })

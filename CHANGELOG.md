@@ -25,6 +25,8 @@ All notable changes to Chronly are documented here. The format follows
 
 ### Fixed
 
+- Chronly serializes imported-sound changes so concurrent imports and removals
+  preserve each file. If storage rejects removal, Chronly keeps the selected sound and shows a retryable error.
 - Chronly serializes appearance updates so rapid changes preserve each setting.
   Range and colour controls write once per committed change and report storage errors.
 - World-clock storage failures now keep entered values and show a retryable

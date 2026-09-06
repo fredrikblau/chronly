@@ -11,6 +11,7 @@
   let fileInput: HTMLInputElement
   let error = $state('')
   let pendingSounds = $state<CustomSound[]>([])
+  let removing = $state(false)
 
   const AUDIO_EXTENSIONS = /\.(mp3|wav|ogg|oga|m4a|aac|flac|webm)$/i
 
@@ -69,13 +70,21 @@
     fileInput.value = ''
   }
 
-  function removeSelected() {
-    if (!soundId.startsWith('custom-')) return
+  async function removeSelected() {
+    if (!soundId.startsWith('custom-') || removing) return
     const fallback = SOUND_PRESETS[0].id
     const removedId = soundId
-    pendingSounds = pendingSounds.filter((sound) => sound.id !== removedId)
-    void soundActions.remove(removedId)
-    soundId = fallback
+    error = ''
+    removing = true
+    try {
+      await soundActions.remove(removedId)
+      pendingSounds = pendingSounds.filter((sound) => sound.id !== removedId)
+      if (soundId === removedId) soundId = fallback
+    } catch {
+      error = 'Could not remove that sound. Check the extension storage and try again.'
+    } finally {
+      removing = false
+    }
   }
 </script>
 
@@ -91,7 +100,9 @@
   <div class="sound-actions">
     <button type="button" class="link" onclick={() => fileInput.click()}>Import audio</button>
     {#if soundId.startsWith('custom-')}
-      <button type="button" class="link danger" onclick={removeSelected}>Remove</button>
+      <button type="button" class="link danger" disabled={removing} onclick={removeSelected}>
+        {removing ? 'Removing…' : 'Remove'}
+      </button>
     {/if}
     <input
       bind:this={fileInput}

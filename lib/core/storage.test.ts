@@ -170,6 +170,43 @@ describe('CustomSoundStore', () => {
     await store.remove(sound.id)
     expect(await store.getAll()).toEqual([])
   })
+
+  it('preserves concurrent imported-sound changes', async () => {
+    const memory = createMemoryStorageBackend()
+    let rejectNextWrite = false
+    const backend: StorageBackend = {
+      async get<T>(key: string) {
+        const value = await memory.get<T>(key)
+        return value === undefined ? undefined : structuredClone(value)
+      },
+      async set(key, value) {
+        if (rejectNextWrite) {
+          rejectNextWrite = false
+          throw new Error('storage unavailable')
+        }
+        await memory.set(key, structuredClone(value))
+      },
+      remove: (key) => memory.remove(key),
+    }
+    const store = new CustomSoundStore(backend)
+    const first = {
+      id: 'custom-1',
+      name: 'Bell',
+      dataUrl: 'data:audio/ogg;base64,AAAA',
+      mimeType: 'audio/ogg',
+      createdAt: 1,
+    }
+    const second = { ...first, id: 'custom-2', name: 'Chime' }
+    await store.upsert(first)
+
+    await Promise.all([store.upsert(second), store.remove(first.id)])
+
+    expect(await store.getAll()).toEqual([second])
+
+    rejectNextWrite = true
+    await expect(store.remove(second.id)).rejects.toThrow('storage unavailable')
+    await expect(store.remove(second.id)).resolves.toBeUndefined()
+  })
 })
 
 describe('createExtensionStorageBackend', () => {

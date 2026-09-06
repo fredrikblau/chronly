@@ -36,7 +36,7 @@ test('popup shows a live clock and can create an alarm', async ({ context, exten
   await expect(alarms.getByRole('listitem').filter({ hasText: 'Smoke test alarm' })).toBeVisible()
 })
 
-test('alarm sound picker shows built-ins and imports a custom audio file', async ({ context, extensionId }) => {
+test('alarm sound picker imports and removes a custom audio file', async ({ context, extensionId }) => {
   const page = await context.newPage()
   await page.goto(`chrome-extension://${extensionId}/popup.html`)
   await page.getByRole('tab', { name: 'Alarms' }).click()
@@ -57,7 +57,15 @@ test('alarm sound picker shows built-ins and imports a custom audio file', async
 
   await page.reload()
   await page.getByRole('tab', { name: 'Alarms' }).click()
-  await expect(alarms.locator('select[aria-label="Sound"] option', { hasText: 'morning-bell' })).toBeAttached()
+  const restored = alarms.locator('select[aria-label="Sound"] option', { hasText: 'morning-bell' })
+  await expect(restored).toBeAttached()
+  await sound.selectOption((await restored.getAttribute('value'))!)
+  await alarms.getByRole('button', { name: 'Remove' }).click()
+  await expect(restored).toHaveCount(0)
+
+  await page.reload()
+  await page.getByRole('tab', { name: 'Alarms' }).click()
+  await expect(alarms.locator('select[aria-label="Sound"] option', { hasText: 'morning-bell' })).toHaveCount(0)
 })
 
 test('settings can build a custom background and pick its accent', async ({ context, extensionId }) => {
