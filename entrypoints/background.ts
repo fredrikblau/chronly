@@ -8,12 +8,7 @@ import {
   reconcileFiredRecord,
   snoozeAlarm,
 } from '../lib/core/scheduler'
-import {
-  createExtensionStorageBackend,
-  PomodoroStatsStore,
-  CustomSoundStore,
-  RecordStore,
-} from '../lib/core/storage'
+import { createExtensionStorageBackend, PomodoroStatsStore, CustomSoundStore, RecordStore } from '../lib/core/storage'
 import type { SchedulableRecord } from '../lib/core/types'
 
 export const TICK_ALARM_NAME = 'tick'
@@ -22,6 +17,23 @@ const RECORD_ALARM_PREFIX = 'record:'
 
 function recordAlarmName(id: string): string {
   return `${RECORD_ALARM_PREFIX}${id}`
+}
+
+export async function cleanupRemovedRecords(
+  oldRecords: Record<string, SchedulableRecord> = {},
+  newRecords: Record<string, SchedulableRecord> = {},
+): Promise<void> {
+  await Promise.all(
+    Object.values(oldRecords)
+      .filter((record) => !newRecords[record.id])
+      .map((record) =>
+        Promise.all([
+          browser.alarms.clear(recordAlarmName(record.id)),
+          browser.notifications.clear(buildNotificationSpec(record).notificationId),
+          stopAlarmSound(record.id),
+        ]),
+      ),
+  )
 }
 
 async function scheduleRecords(records: SchedulableRecord[], now: number): Promise<void> {
@@ -128,10 +140,7 @@ export async function handleNotificationButton(
  * on Firefox, which supports no notification buttons — clicking the body there
  * closes the notification and lands here.
  */
-export async function handleNotificationClosed(
-  store: RecordStore,
-  notificationId: string,
-): Promise<void> {
+export async function handleNotificationClosed(store: RecordStore, notificationId: string): Promise<void> {
   const record = await store.get(extractRecordId(notificationId))
   // The notification may already have advanced a recurring alarm or a
   // Pomodoro into its next state, so `notified` is not a reliable playback
@@ -192,6 +201,10 @@ export default defineBackground(() => {
   // for the coarse reconciliation tick to discover it.
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local' || !changes.records) return
+    void cleanupRemovedRecords(
+      changes.records.oldValue as Record<string, SchedulableRecord> | undefined,
+      changes.records.newValue as Record<string, SchedulableRecord> | undefined,
+    )
     void reconcileDueRecords(store, Date.now())
   })
 })

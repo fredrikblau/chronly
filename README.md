@@ -23,7 +23,7 @@ tracking, account, server, or artificial limits.
 
 **As a tester:**
 
-- [Chronly 0.1.0 RC1](https://github.com/fredrikblau/chronly/releases/tag/v0.1.0-rc.1)
+- [Chronly 0.1.0 RC2](https://github.com/fredrikblau/chronly/releases/tag/v0.1.0-rc.2)
   provides a Chrome developer-mode build and a temporary Firefox build. The
   release notes list the remaining manual checks.
 

@@ -1,6 +1,10 @@
 import { expect } from '@playwright/test'
 import { test } from './fixtures'
 
+declare const chrome: {
+  alarms: { getAll(): Promise<Array<{ name: string }>> }
+}
+
 test('popup shows a live clock and can create an alarm', async ({ context, extensionId }) => {
   const page = await context.newPage()
   await page.goto(`chrome-extension://${extensionId}/popup.html`)
@@ -85,7 +89,13 @@ test('scheduled data survives force-closing the MV3 service worker', async ({ co
   await panel.getByPlaceholder('Label').fill('Suspension test')
   await panel.getByRole('button', { name: '1 min' }).click()
   await panel.locator('form.new-timer').getByRole('button', { name: 'Start', exact: true }).click()
-  await expect(panel.getByRole('listitem').filter({ hasText: 'Suspension test' })).toBeVisible()
+  const timer = panel.getByRole('listitem').filter({ hasText: 'Suspension test' })
+  await expect(timer).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(async () => (await chrome.alarms.getAll()).some(({ name }) => name.startsWith('record:'))),
+    )
+    .toBe(true)
 
   const cdp = await context.newCDPSession(page)
   const { targetInfos } = await cdp.send('Target.getTargets')
@@ -98,7 +108,16 @@ test('scheduled data survives force-closing the MV3 service worker', async ({ co
   const reopened = await context.newPage()
   await reopened.goto(`chrome-extension://${extensionId}/popup.html`)
   await reopened.getByRole('tab', { name: 'Timers' }).click()
-  await expect(
-    reopened.getByRole('tabpanel', { name: 'Timers' }).getByRole('listitem').filter({ hasText: 'Suspension test' }),
-  ).toBeVisible()
+  const restored = reopened
+    .getByRole('tabpanel', { name: 'Timers' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Suspension test' })
+  await expect(restored).toBeVisible()
+  await restored.getByRole('button', { name: 'Delete Suspension test' }).click()
+  await expect(restored).toHaveCount(0)
+  await expect
+    .poll(() =>
+      reopened.evaluate(async () => (await chrome.alarms.getAll()).some(({ name }) => name.startsWith('record:'))),
+    )
+    .toBe(false)
 })

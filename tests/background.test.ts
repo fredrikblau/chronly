@@ -2,12 +2,9 @@ import { fakeBrowser } from '@webext-core/fake-browser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { playAlarmSound, stopAlarmSound } from '../lib/core/audio'
 import { createAlarm, createCountdown, createPomodoro } from '../lib/core/scheduler'
+import { createExtensionStorageBackend, PomodoroStatsStore, RecordStore } from '../lib/core/storage'
 import {
-  createExtensionStorageBackend,
-  PomodoroStatsStore,
-  RecordStore,
-} from '../lib/core/storage'
-import {
+  cleanupRemovedRecords,
   ensureTickAlarm,
   extractRecordId,
   handleNotificationButton,
@@ -51,6 +48,29 @@ describe('ensureTickAlarm', () => {
     const createSpy = vi.spyOn(fakeBrowser.alarms, 'create')
     await ensureTickAlarm()
     expect(createSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('cleanupRemovedRecords', () => {
+  beforeEach(() => {
+    fakeBrowser.reset()
+  })
+
+  it('stops every browser resource owned by a deleted record', async () => {
+    const countdown = createCountdown('Tea', 60_000, NOW)
+    await fakeBrowser.alarms.create(`record:${countdown.id}`, { when: NOW + 60_000 })
+    await fakeBrowser.notifications.create(`chronly-countdown-${countdown.id}`, {
+      type: 'basic',
+      iconUrl: '/icon/128.png',
+      title: 'Tea',
+      message: 'Time is up.',
+    })
+
+    await cleanupRemovedRecords({ [countdown.id]: countdown }, {})
+
+    expect(await fakeBrowser.alarms.get(`record:${countdown.id}`)).toBeUndefined()
+    expect(await fakeBrowser.notifications.getAll()).toEqual({})
+    expect(stopAlarmSound).toHaveBeenCalledWith(countdown.id)
   })
 })
 
@@ -235,9 +255,7 @@ describe('handleNotificationButton', () => {
 
   it('ignores a notification whose record is already gone', async () => {
     const store = newStore()
-    await expect(
-      handleNotificationButton(store, 'chronly-alarm-missing', 0, NOW),
-    ).resolves.toBeUndefined()
+    await expect(handleNotificationButton(store, 'chronly-alarm-missing', 0, NOW)).resolves.toBeUndefined()
   })
 })
 

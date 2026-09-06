@@ -22,3 +22,8 @@ All notable changes to Chronly are documented here. The format follows
 - Alarm sounds can repeat until dismissed, with clearer sound choices and a
   dedicated, live-updating stopwatch tab.
 - The browser’s default New Tab page is preserved; Chronly does not override it.
+
+### Fixed
+
+- Deleting an alarm, timer, or Pomodoro now clears its scheduled browser alarm,
+  notification, and active sound.
