@@ -3,6 +3,7 @@ import { test } from './fixtures'
 
 declare const chrome: {
   alarms: { getAll(): Promise<Array<{ name: string }>> }
+  notifications: { getAll(): Promise<Record<string, unknown>> }
 }
 
 test('popup shows a live clock and can create an alarm', async ({ context, extensionId }) => {
@@ -77,6 +78,30 @@ test('settings can build a custom background and pick its accent', async ({ cont
   await expect
     .poll(async () => page.evaluate(() => document.documentElement.style.getPropertyValue('--bg')))
     .toContain('linear-gradient')
+})
+
+test('a scheduled timer fires through the background worker', async ({ context, extensionId }) => {
+  const page = await context.newPage()
+  await page.goto(`chrome-extension://${extensionId}/popup.html`)
+  await page.getByRole('tab', { name: 'Timers' }).click()
+  const panel = page.getByRole('tabpanel', { name: 'Timers' })
+  await panel.getByLabel('Timer label').fill('Delivery test')
+  await panel.getByRole('spinbutton', { name: 'Minutes' }).fill('0')
+  await panel.getByRole('spinbutton', { name: 'Seconds' }).fill('2')
+  await panel.locator('form.new-timer').getByRole('button', { name: 'Start', exact: true }).click()
+
+  const timer = panel.getByRole('listitem').filter({ hasText: 'Delivery test' })
+  await expect(timer).toBeVisible()
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async () =>
+          Object.keys(await chrome.notifications.getAll()).some((id) => id.startsWith('chronly-countdown-')),
+        ),
+      { timeout: 15_000 },
+    )
+    .toBe(true)
+  await expect(timer).toContainText('Done')
 })
 
 test('scheduled data survives force-closing the MV3 service worker', async ({ context, extensionId }) => {
