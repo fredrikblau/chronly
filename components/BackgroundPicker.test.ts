@@ -1,8 +1,9 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createExtensionStorageBackend, SettingsStore } from '../lib/core/storage'
 import type { BackgroundConfig, Settings } from '../lib/core/types'
+import { settingsActions } from '../lib/ui/settings'
 import BackgroundPicker from './BackgroundPicker.svelte'
 
 const readSettings = () => new SettingsStore(createExtensionStorageBackend('sync')).get()
@@ -25,6 +26,7 @@ describe('BackgroundPicker', () => {
   beforeEach(() => {
     fakeBrowser.reset()
   })
+  afterEach(() => vi.restoreAllMocks())
 
   it('applies a gradient preset', async () => {
     render(BackgroundPicker)
@@ -60,7 +62,7 @@ describe('BackgroundPicker', () => {
   it('sets a solid colour', async () => {
     render(BackgroundPicker)
 
-    await fireEvent.input(screen.getByLabelText('Solid colour'), { target: { value: '#123456' } })
+    await fireEvent.change(screen.getByLabelText('Solid colour'), { target: { value: '#123456' } })
 
     await expectBackground({ type: 'solid', value: '#123456' })
   })
@@ -75,7 +77,7 @@ describe('BackgroundPicker', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Sunset' })).toHaveAttribute('aria-pressed', 'true')
     })
-    await fireEvent.input(screen.getByLabelText('Accent colour'), { target: { value: '#00ff00' } })
+    await fireEvent.change(screen.getByLabelText('Accent colour'), { target: { value: '#00ff00' } })
 
     await expectBackground({ type: 'gradient', value: SUNSET, accentColor: '#00ff00' })
   })
@@ -92,5 +94,14 @@ describe('BackgroundPicker', () => {
     await waitFor(async () => {
       expect((await readSettings()).background.accentColor).toBe('#123456')
     })
+  })
+
+  it('shows a storage error when a background update fails', async () => {
+    vi.spyOn(settingsActions, 'update').mockRejectedValue(new Error('sync quota exceeded'))
+    render(BackgroundPicker)
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Sunset' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save background settings')
   })
 })

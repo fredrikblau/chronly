@@ -8,6 +8,7 @@ import {
   RecordStore,
   SettingsStore,
   StopwatchStore,
+  type StorageBackend,
   watchStorageKey,
   WorldClockStore,
 } from './storage'
@@ -108,6 +109,38 @@ describe('SettingsStore', () => {
     expect(updated.theme).toBe('dark')
     expect(updated.hour12).toBe(DEFAULT_SETTINGS.hour12)
     expect(await store.get()).toEqual(updated)
+  })
+
+  it('preserves concurrent settings updates', async () => {
+    const store = new SettingsStore(createMemoryStorageBackend())
+
+    await Promise.all([
+      store.update({ theme: 'dark' }),
+      store.update({ hour12: true }),
+      store.update({ background: { accentColor: '#ffffff' } }),
+    ])
+
+    expect(await store.get()).toMatchObject({ theme: 'dark', hour12: true })
+    expect((await store.get()).background).toEqual({ ...DEFAULT_SETTINGS.background, accentColor: '#ffffff' })
+  })
+
+  it('continues after a settings write fails', async () => {
+    const memory = createMemoryStorageBackend()
+    let rejectNextWrite = true
+    const backend: StorageBackend = {
+      ...memory,
+      async set(key, value) {
+        if (rejectNextWrite) {
+          rejectNextWrite = false
+          throw new Error('sync quota exceeded')
+        }
+        await memory.set(key, value)
+      },
+    }
+    const store = new SettingsStore(backend)
+
+    await expect(store.update({ theme: 'dark' })).rejects.toThrow('sync quota exceeded')
+    await expect(store.update({ hour12: true })).resolves.toMatchObject({ hour12: true })
   })
 
   it('replaces a legacy image background that the popup cannot display', async () => {

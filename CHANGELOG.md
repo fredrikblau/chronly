@@ -25,6 +25,8 @@ All notable changes to Chronly are documented here. The format follows
 
 ### Fixed
 
+- Chronly serializes appearance updates so rapid changes preserve each setting.
+  Range and colour controls write once per committed change and report storage errors.
 - World-clock storage failures now keep entered values and show a retryable
   error instead of clearing unsaved input.
 - Deleting an alarm, timer, or Pomodoro now clears its scheduled browser alarm,

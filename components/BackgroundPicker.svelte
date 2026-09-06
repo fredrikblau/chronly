@@ -19,7 +19,10 @@
   const solidValue = $derived(background.type === 'solid' ? background.value : '#0b0b0f')
 
   function apply(patch: Partial<BackgroundConfig>) {
-    void settingsActions.update({ background: { ...background, ...patch } })
+    void settingsActions.update({ background: patch }).then(
+      () => (error = null),
+      () => (error = 'Could not save background settings. Try again.'),
+    )
   }
 
   function setSolid(color: string) {
@@ -62,7 +65,7 @@
       class="swatch"
       type="color"
       value={solidValue}
-      oninput={(e) => setSolid(e.currentTarget.value)}
+      onchange={(e) => setSolid(e.currentTarget.value)}
     />
     <label for="chronly-bg-accent">Accent colour</label>
     <input
@@ -70,7 +73,7 @@
       class="swatch"
       type="color"
       value={background.accentColor}
-      oninput={(e) => setAccent(e.currentTarget.value)}
+      onchange={(e) => setAccent(e.currentTarget.value)}
     />
   </div>
 

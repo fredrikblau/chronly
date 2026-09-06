@@ -1,5 +1,5 @@
 import { readable } from 'svelte/store'
-import { createExtensionStorageBackend, SettingsStore, watchStorageKey } from '../core/storage'
+import { createExtensionStorageBackend, SettingsStore, watchStorageKey, type SettingsPatch } from '../core/storage'
 import { DEFAULT_SETTINGS } from '../core/types'
 import type { Settings } from '../core/types'
 
@@ -12,5 +12,5 @@ export const settings = readable<Settings>(DEFAULT_SETTINGS, (set) => {
 })
 
 export const settingsActions = {
-  update: (patch: Partial<Settings>) => store.update(patch),
+  update: (patch: SettingsPatch) => store.update(patch),
 }

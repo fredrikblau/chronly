@@ -29,6 +29,10 @@ const SETTINGS_KEY = 'settings'
 const POMODORO_STATS_KEY = 'pomodoroStats'
 const CUSTOM_SOUNDS_KEY = 'customSounds'
 
+export type SettingsPatch = Omit<Partial<Settings>, 'background'> & {
+  background?: Partial<Settings['background']>
+}
+
 export class RecordStore {
   constructor(private backend: StorageBackend) {}
 
@@ -109,6 +113,8 @@ export class WorldClockStore {
 }
 
 export class SettingsStore {
+  private writeChain = Promise.resolve()
+
   constructor(private backend: StorageBackend) {}
 
   async get(): Promise<Settings> {
@@ -120,11 +126,22 @@ export class SettingsStore {
     return { ...DEFAULT_SETTINGS, ...stored, background }
   }
 
-  async update(patch: Partial<Settings>): Promise<Settings> {
-    const current = await this.get()
-    const next = { ...current, ...patch }
-    await this.backend.set(SETTINGS_KEY, next)
-    return next
+  update(patch: SettingsPatch): Promise<Settings> {
+    const write = this.writeChain.then(async () => {
+      const current = await this.get()
+      const next: Settings = {
+        ...current,
+        ...patch,
+        background: patch.background ? { ...current.background, ...patch.background } : current.background,
+      }
+      await this.backend.set(SETTINGS_KEY, next)
+      return next
+    })
+    this.writeChain = write.then(
+      () => undefined,
+      () => undefined,
+    )
+    return write
   }
 }
 

@@ -1,8 +1,9 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createExtensionStorageBackend, SettingsStore } from '../lib/core/storage'
 import type { Settings } from '../lib/core/types'
+import { settingsActions } from '../lib/ui/settings'
 import ThemePicker from './ThemePicker.svelte'
 
 // A fresh handle every time: the component writes through its own store, so
@@ -25,6 +26,7 @@ describe('ThemePicker', () => {
   beforeEach(() => {
     fakeBrowser.reset()
   })
+  afterEach(() => vi.restoreAllMocks())
 
   it('updates the theme setting when a radio option is chosen', async () => {
     render(ThemePicker)
@@ -77,7 +79,7 @@ describe('ThemePicker', () => {
     render(ThemePicker)
     const slider = await screen.findByLabelText('Text size')
 
-    await fireEvent.input(slider, { target: { value: '1.4' } })
+    await fireEvent.change(slider, { target: { value: '1.4' } })
 
     await expectSetting('fontScale', 1.4)
   })
@@ -86,7 +88,7 @@ describe('ThemePicker', () => {
     render(ThemePicker)
     const slider = await screen.findByLabelText('Clock contrast')
 
-    await fireEvent.input(slider, { target: { value: '1.35' } })
+    await fireEvent.change(slider, { target: { value: '1.35' } })
 
     await expectSetting('clockContrast', 1.35)
   })
@@ -106,6 +108,15 @@ describe('ThemePicker', () => {
     render(ThemePicker)
 
     expect(await screen.findByText('150%')).toBeInTheDocument()
+  })
+
+  it('shows a storage error when an appearance update fails', async () => {
+    vi.spyOn(settingsActions, 'update').mockRejectedValue(new Error('sync quota exceeded'))
+    render(ThemePicker)
+
+    await fireEvent.click(await screen.findByRole('radio', { name: 'Dark' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save appearance settings')
   })
 
   it('reflects the stored settings when it mounts', async () => {

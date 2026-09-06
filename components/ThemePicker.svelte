@@ -16,9 +16,13 @@
 
   const fontScalePercent = $derived(`${Math.round($settings.fontScale * 100)}%`)
   const clockContrastPercent = $derived(`${Math.round($settings.clockContrast * 100)}%`)
+  let error = $state<string | null>(null)
 
   function update(patch: Partial<Settings>) {
-    void settingsActions.update(patch)
+    void settingsActions.update(patch).then(
+      () => (error = null),
+      () => (error = 'Could not save appearance settings. Try again.'),
+    )
   }
 </script>
 
@@ -84,7 +88,7 @@
       max="2"
       step="0.1"
       value={$settings.fontScale}
-      oninput={(e) => update({ fontScale: Number(e.currentTarget.value) })}
+      onchange={(e) => update({ fontScale: Number(e.currentTarget.value) })}
     />
     <output for="chronly-font-scale">{fontScalePercent}</output>
   </div>
@@ -98,7 +102,7 @@
       max="1.5"
       step="0.05"
       value={$settings.clockContrast}
-      oninput={(e) => update({ clockContrast: Number(e.currentTarget.value) })}
+      onchange={(e) => update({ clockContrast: Number(e.currentTarget.value) })}
     />
     <output for="chronly-clock-contrast">{clockContrastPercent}</output>
   </div>
@@ -111,6 +115,10 @@
     />
     <span>Reduce motion</span>
   </label>
+
+  {#if error}
+    <p class="error" role="alert">{error}</p>
+  {/if}
 </section>
 
 <style>
@@ -227,6 +235,12 @@
     color: var(--muted);
     min-width: 3ch;
     text-align: right;
+  }
+
+  .error {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--danger, #f3948f);
   }
 
   :is(input, .option):focus-visible {

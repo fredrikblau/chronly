@@ -23,7 +23,7 @@ tracking, account, or server.
 
 **As a tester:**
 
-- [Chronly 0.1.0 RC4](https://github.com/fredrikblau/chronly/releases/tag/v0.1.0-rc.4)
+- [Chronly 0.1.0 RC5](https://github.com/fredrikblau/chronly/releases/tag/v0.1.0-rc.5)
   provides a Chrome developer-mode build and a temporary Firefox build. The
   release notes list the remaining manual checks.
 
