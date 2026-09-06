@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPomodoro } from '../lib/core/scheduler'
 import { createExtensionStorageBackend, RecordStore } from '../lib/core/storage'
 import type { PomodoroConfig, PomodoroRecord } from '../lib/core/types'
+import { recordActions } from '../lib/ui/records'
 import PomodoroPanel from './PomodoroPanel.svelte'
 
 const CONFIG: PomodoroConfig = {
@@ -78,6 +79,28 @@ describe('PomodoroPanel', () => {
     expect(await screen.findByText('Deep work')).toBeInTheDocument()
     expect(await screen.findByText('Focus')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Start' })).toBeNull()
+  })
+
+  it('keeps the Pomodoro draft when storage rejects it', async () => {
+    let rejectWrite: (reason?: unknown) => void = () => undefined
+    vi.spyOn(recordActions, 'upsert').mockImplementation(() => {
+      const write = new Promise<void>((_resolve, reject) => (rejectWrite = reject))
+      void write.catch(() => undefined)
+      return write
+    })
+    render(PomodoroPanel)
+    const label = await screen.findByPlaceholderText('Label')
+    const start = screen.getByRole('button', { name: 'Start' })
+    await fireEvent.input(label, { target: { value: 'Deep work' } })
+
+    await fireEvent.click(start)
+    const disabledWhileSaving = start.hasAttribute('disabled') && label.hasAttribute('disabled')
+    rejectWrite(new Error('storage unavailable'))
+
+    expect(disabledWhileSaving).toBe(true)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not start')
+    expect(label).toHaveValue('Deep work')
+    expect(screen.getByRole('button', { name: 'Start' })).toBeEnabled()
   })
 
   it('writes the configured durations onto the new record', async () => {

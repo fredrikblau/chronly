@@ -115,24 +115,23 @@ export async function handleNotificationButton(
   const record = await store.get(extractRecordId(notificationId))
   if (!record) return
 
-  if (record.kind === 'alarm' && buttonIndex === 0) {
-    await store.upsert(snoozeAlarm(record, now))
+  try {
+    if (record.kind === 'alarm' && buttonIndex === 0) {
+      await store.upsert(snoozeAlarm(record, now))
+      return
+    }
+
+    if (record.kind === 'pomodoro' && buttonIndex === 0) {
+      // Pause the phase that already auto-started.
+      await store.upsert(pauseRecord(record, now))
+      return
+    }
+
+    if (isTransient(record)) await store.remove(record.id)
+  } finally {
     void stopAlarmSound(record.id)
     await browser.notifications.clear(notificationId)
-    return
   }
-
-  if (record.kind === 'pomodoro' && buttonIndex === 0) {
-    // Pause the phase that already auto-started.
-    await store.upsert(pauseRecord(record, now))
-    void stopAlarmSound(record.id)
-    await browser.notifications.clear(notificationId)
-    return
-  }
-
-  if (isTransient(record)) await store.remove(record.id)
-  void stopAlarmSound(record.id)
-  await browser.notifications.clear(notificationId)
 }
 
 /**
@@ -173,7 +172,9 @@ export default defineBackground(() => {
   // touching it there throws. Its dismissal path is onClosed instead.
   if (browser.notifications.onButtonClicked) {
     browser.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
-      void handleNotificationButton(store, notificationId, buttonIndex, Date.now())
+      void handleNotificationButton(store, notificationId, buttonIndex, Date.now()).catch((error: unknown) => {
+        console.warn('[chronly] could not handle notification button', notificationId, error)
+      })
     })
   }
 
@@ -186,7 +187,9 @@ export default defineBackground(() => {
   }
 
   browser.notifications.onClosed.addListener((notificationId) => {
-    void handleNotificationClosed(store, notificationId)
+    void handleNotificationClosed(store, notificationId).catch((error: unknown) => {
+      console.warn('[chronly] could not handle notification close', notificationId, error)
+    })
   })
 
   browser.runtime.onInstalled.addListener(() => {

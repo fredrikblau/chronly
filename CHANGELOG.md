@@ -25,6 +25,11 @@ All notable changes to Chronly are documented here. The format follows
 
 ### Fixed
 
+- Alarm, timer, and Pomodoro controls now keep draft values and show a retryable
+  error when browser storage rejects a change. Timer restart uses one write, so
+  a failed restart cannot remove the existing timer.
+- Dismissing a notification now stops its sound and clears the alert even when
+  record cleanup fails.
 - Chronly serializes alarm, timer, and Pomodoro changes across popup and
   background contexts so concurrent edits, deletions, and delivery updates do
   not overwrite each other.

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAlarm } from '../lib/core/scheduler'
 import { createExtensionStorageBackend, RecordStore } from '../lib/core/storage'
 import type { AlarmRecord, SchedulableRecord } from '../lib/core/types'
+import { recordActions } from '../lib/ui/records'
 import AlarmsPanel from './AlarmsPanel.svelte'
 
 // 2026-02-02 is a Monday in local time.
@@ -55,6 +56,31 @@ describe('AlarmsPanel', () => {
 
     expect(await screen.findByText('Standup')).toBeInTheDocument()
     expect(screen.queryByText(/no alarms yet/i)).toBeNull()
+  })
+
+  it('keeps the alarm draft when storage rejects it', async () => {
+    let rejectWrite: (reason?: unknown) => void = () => undefined
+    vi.spyOn(recordActions, 'upsert').mockImplementation(() => {
+      const write = new Promise<void>((_resolve, reject) => (rejectWrite = reject))
+      void write.catch(() => undefined)
+      return write
+    })
+    render(AlarmsPanel)
+    const label = screen.getByPlaceholderText('Label')
+    const monday = screen.getByRole('button', { name: 'Monday' })
+    const add = screen.getByRole('button', { name: 'Add alarm' })
+    await fireEvent.input(label, { target: { value: 'Standup' } })
+    await fireEvent.click(monday)
+
+    await fireEvent.click(add)
+    const disabledWhileSaving = add.hasAttribute('disabled') && label.hasAttribute('disabled')
+    rejectWrite(new Error('storage unavailable'))
+
+    expect(disabledWhileSaving).toBe(true)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save')
+    expect(label).toHaveValue('Standup')
+    expect(monday).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Add alarm' })).toBeEnabled()
   })
 
   it('persists the created alarm through the shared record store', async () => {

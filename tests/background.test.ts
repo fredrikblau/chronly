@@ -253,6 +253,21 @@ describe('handleNotificationButton', () => {
     expect(stopAlarmSound).toHaveBeenCalledWith(alarm.id)
   })
 
+  it('stops a dismissed alarm even when record removal fails', async () => {
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+    await reconcileDueRecords(store, NOW + 1)
+    vi.spyOn(fakeBrowser.storage.local, 'set').mockRejectedValueOnce(new Error('storage unavailable'))
+
+    await expect(handleNotificationButton(store, `chronly-alarm-${alarm.id}`, 1, NOW + 5000)).rejects.toThrow(
+      'storage unavailable',
+    )
+
+    expect(stopAlarmSound).toHaveBeenCalledWith(alarm.id)
+    expect(await fakeBrowser.notifications.getAll()).toEqual({})
+  })
+
   it('ignores a notification whose record is already gone', async () => {
     const store = newStore()
     await expect(handleNotificationButton(store, 'chronly-alarm-missing', 0, NOW)).resolves.toBeUndefined()

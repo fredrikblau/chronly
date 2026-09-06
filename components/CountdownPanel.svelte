@@ -15,6 +15,8 @@
   let seconds = $state(0)
   let soundId = $state(SOUND_PRESETS[0].id)
   let volume = $state(0.8)
+  let error = $state<string | null>(null)
+  let saving = $state(false)
 
   // Sort so what needs attention is at the top: running (soonest first), then
   // paused, then the spent ones waiting to be dismissed.
@@ -63,20 +65,52 @@
     seconds = 0
   }
 
-  function start() {
+  async function save(action: () => Promise<void>, failure: string): Promise<boolean> {
+    if (saving) return false
+    saving = true
+    error = null
+    try {
+      await action()
+      return true
+    } catch {
+      error = failure
+      return false
+    } finally {
+      saving = false
+    }
+  }
+
+  async function start() {
     if (durationMs <= 0) return
-    void recordActions.upsert(createCountdown(label.trim() || 'Timer', durationMs, Date.now(), { soundId, volume }))
+    if (
+      !(await save(
+        () =>
+          recordActions.upsert(createCountdown(label.trim() || 'Timer', durationMs, Date.now(), { soundId, volume })),
+        'Could not start that timer. Try again.',
+      ))
+    )
+      return
     label = ''
   }
 
-  function restart(record: CountdownRecord) {
-    void recordActions.upsert(
-      createCountdown(record.label, record.durationMs, Date.now(), {
+  async function restart(record: CountdownRecord) {
+    const restarted = {
+      ...createCountdown(record.label, record.durationMs, Date.now(), {
         soundId: record.soundId,
         volume: record.volume,
       }),
-    )
-    void recordActions.remove(record.id)
+      id: record.id,
+    }
+    await save(() => recordActions.upsert(restarted), 'Could not restart that timer. Try again.')
+  }
+
+  async function togglePause(record: CountdownRecord) {
+    const updated = record.status === 'running' ? pauseRecord(record, Date.now()) : resumeRecord(record, Date.now())
+    await save(() => recordActions.upsert(updated), 'Could not update that timer. Try again.')
+  }
+
+  async function remove(record: CountdownRecord) {
+    await save(() => recordActions.remove(record.id), 'Could not delete that timer. Try again.')
   }
 </script>
 
@@ -107,7 +141,8 @@
                 type="button"
                 class="ghost"
                 aria-label={`Pause ${countdown.label}`}
-                onclick={() => recordActions.upsert(pauseRecord(countdown, Date.now()))}
+                disabled={saving}
+                onclick={() => void togglePause(countdown)}
               >
                 Pause
               </button>
@@ -116,7 +151,8 @@
                 type="button"
                 class="ghost"
                 aria-label={`Resume ${countdown.label}`}
-                onclick={() => recordActions.upsert(resumeRecord(countdown, Date.now()))}
+                disabled={saving}
+                onclick={() => void togglePause(countdown)}
               >
                 Resume
               </button>
@@ -125,7 +161,8 @@
                 type="button"
                 class="ghost"
                 aria-label={`Restart ${countdown.label}`}
-                onclick={() => restart(countdown)}
+                disabled={saving}
+                onclick={() => void restart(countdown)}
               >
                 Restart
               </button>
@@ -134,7 +171,8 @@
               type="button"
               class="ghost danger"
               aria-label={`Delete ${countdown.label}`}
-              onclick={() => recordActions.remove(countdown.id)}
+              disabled={saving}
+              onclick={() => void remove(countdown)}
             >
               Delete
             </button>
@@ -155,7 +193,14 @@
       start()
     }}
   >
-    <input class="label-input" type="text" placeholder="Label" aria-label="Timer label" bind:value={label} />
+    <input
+      class="label-input"
+      type="text"
+      placeholder="Label"
+      aria-label="Timer label"
+      disabled={saving}
+      bind:value={label}
+    />
 
     <div class="duration">
       <input type="number" min="0" max="999" aria-label="Minutes" bind:value={minutes} />
@@ -179,8 +224,10 @@
 
     <SoundPicker bind:soundId bind:volume />
 
-    <button type="submit" class="primary" disabled={durationMs <= 0}>Start</button>
+    <button type="submit" class="primary" disabled={durationMs <= 0 || saving}>{saving ? 'Saving…' : 'Start'}</button>
   </form>
+
+  {#if error}<p class="error" role="alert">{error}</p>{/if}
 </section>
 
 <style>
@@ -385,6 +432,17 @@
   .primary:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .error {
+    margin: 0;
+    color: var(--danger, #fca5a5);
+    font-size: 0.72rem;
   }
 
   .ghost {

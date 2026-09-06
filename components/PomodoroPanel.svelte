@@ -45,6 +45,8 @@
   let stats = $state<PomodoroStats>(DEFAULT_POMODORO_STATS)
   let soundId = $state('default')
   let volume = $state(0.8)
+  let error = $state<string | null>(null)
+  let saving = $state(false)
 
   $effect(() => {
     let live = true
@@ -78,14 +80,38 @@
     return Number.isFinite(value) && value >= 1 ? Math.round(value) : fallback
   }
 
-  function start() {
+  async function save(action: () => Promise<void>, failure: string): Promise<boolean> {
+    if (saving) return false
+    saving = true
+    error = null
+    try {
+      await action()
+      return true
+    } catch {
+      error = failure
+      return false
+    } finally {
+      saving = false
+    }
+  }
+
+  async function start() {
     const config: PomodoroConfig = {
       focusMs: minutes(focusMinutes, 25) * 60_000,
       shortBreakMs: minutes(shortBreakMinutes, 5) * 60_000,
       longBreakMs: minutes(longBreakMinutes, 15) * 60_000,
       cyclesBeforeLongBreak: minutes(roundsBeforeLongBreak, 4),
     }
-    void recordActions.upsert(createPomodoro(label.trim() || 'Pomodoro session', config, Date.now(), { soundId, volume }))
+    if (
+      !(await save(
+        () =>
+          recordActions.upsert(
+            createPomodoro(label.trim() || 'Pomodoro session', config, Date.now(), { soundId, volume }),
+          ),
+        'Could not start the Pomodoro. Try again.',
+      ))
+    )
+      return
     label = ''
   }
 
@@ -96,9 +122,14 @@
     roundsBeforeLongBreak = preset.rounds
   }
 
-  function togglePause(record: PomodoroRecord) {
+  async function togglePause(record: PomodoroRecord) {
     const at = Date.now()
-    void recordActions.upsert(record.status === 'running' ? pauseRecord(record, at) : resumeRecord(record, at))
+    const updated = record.status === 'running' ? pauseRecord(record, at) : resumeRecord(record, at)
+    await save(() => recordActions.upsert(updated), 'Could not update the Pomodoro. Try again.')
+  }
+
+  async function stop(record: PomodoroRecord) {
+    await save(() => recordActions.remove(record.id), 'Could not stop the Pomodoro. Try again.')
   }
 
   function phaseDurationMs(record: PomodoroRecord): number {
@@ -227,10 +258,10 @@
       </div>
 
       <div class="controls">
-        <button type="button" class="primary" onclick={() => togglePause(active)}>
+        <button type="button" class="primary" disabled={saving} onclick={() => void togglePause(active)}>
           {active.status === 'running' ? 'Pause' : 'Resume'}
         </button>
-        <button type="button" class="ghost" onclick={() => void recordActions.remove(active.id)}> Stop </button>
+        <button type="button" class="ghost" disabled={saving} onclick={() => void stop(active)}>Stop</button>
       </div>
 
       <div class="calendarRow" role="group" aria-label="Add this phase to a calendar">
@@ -260,7 +291,7 @@
         start()
       }}
     >
-      <input class="label-input" type="text" placeholder="Label" bind:value={label} />
+      <input class="label-input" type="text" placeholder="Label" disabled={saving} bind:value={label} />
 
       <div class="presets" role="group" aria-label="Presets">
         {#each PRESETS as preset (preset.name)}
@@ -310,9 +341,11 @@
         <SoundPicker bind:soundId bind:volume />
       </div>
 
-      <button type="submit" class="primary start">Start</button>
+      <button type="submit" class="primary start" disabled={saving}>{saving ? 'Saving…' : 'Start'}</button>
     </form>
   {/if}
+
+  {#if error}<p class="error" role="alert">{error}</p>{/if}
 </section>
 
 <style>
@@ -650,6 +683,17 @@
 
   button:hover {
     filter: brightness(1.12);
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .error {
+    margin: 0;
+    color: var(--danger, #fca5a5);
+    font-size: 0.72rem;
   }
 
   .ghost:hover {

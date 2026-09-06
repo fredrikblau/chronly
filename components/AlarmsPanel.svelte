@@ -26,6 +26,8 @@
   let selectedDays = $state<number[]>([])
   let soundId = $state(SOUND_PRESETS[0].id)
   let volume = $state(0.8)
+  let error = $state<string | null>(null)
+  let saving = $state(false)
 
   const alarms = $derived(
     ($records ?? [])
@@ -59,14 +61,34 @@
     })
   }
 
-  function addAlarm() {
+  async function save(action: () => Promise<void>, failure: string): Promise<boolean> {
+    if (saving) return false
+    saving = true
+    error = null
+    try {
+      await action()
+      return true
+    } catch {
+      error = failure
+      return false
+    } finally {
+      saving = false
+    }
+  }
+
+  async function addAlarm() {
     if (!parsedTime) return
     const at = Date.now()
     const target = nextOccurrence(parsedTime.hour, parsedTime.minute, at, sortedDays)
-    void recordActions.upsert(buildDraft(target, at))
+    if (!(await save(() => recordActions.upsert(buildDraft(target, at)), 'Could not save that alarm. Try again.')))
+      return
     // Sound and volume stay put: they read as preferences, not per-alarm input.
     label = ''
     selectedDays = []
+  }
+
+  async function removeAlarm(id: string) {
+    await save(() => recordActions.remove(id), 'Could not delete that alarm. Try again.')
   }
 
   /** Fires the notification and the sound exactly as the background worker
@@ -174,7 +196,8 @@
               type="button"
               class="delete"
               aria-label={`Delete alarm ${alarm.label}`}
-              onclick={() => void recordActions.remove(alarm.id)}
+              disabled={saving}
+              onclick={() => void removeAlarm(alarm.id)}
             >
               <span aria-hidden="true">✕</span>
             </button>
@@ -197,7 +220,7 @@
       <label class="sr-only" for="alarm-time">Time</label>
       <input id="alarm-time" class="time" type="time" bind:value={time} required />
       <label class="sr-only" for="alarm-label">Label</label>
-      <input id="alarm-label" class="text" type="text" placeholder="Label" bind:value={label} />
+      <input id="alarm-label" class="text" type="text" placeholder="Label" disabled={saving} bind:value={label} />
     </div>
 
     <fieldset class="days">
@@ -210,6 +233,7 @@
             class:on={selectedDays.includes(day)}
             aria-pressed={selectedDays.includes(day)}
             aria-label={DAY_NAMES[day]}
+            disabled={saving}
             onclick={() => toggleDay(day)}
           >
             {dayLabel}
@@ -227,9 +251,11 @@
 
     <div class="actions">
       <button type="button" class="ghost" onclick={testAlarm}>Test</button>
-      <button type="submit" class="primary">Add alarm</button>
+      <button type="submit" class="primary" disabled={saving}>{saving ? 'Saving…' : 'Add alarm'}</button>
     </div>
   </form>
+
+  {#if error}<p class="error" role="alert">{error}</p>{/if}
 </section>
 
 <style>
@@ -567,6 +593,17 @@
 
   .primary:hover {
     background: color-mix(in srgb, var(--accent, #8b7cf6) 85%, #ffffff);
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .error {
+    margin: 0;
+    color: var(--danger, #fca5a5);
+    font-size: 0.72rem;
   }
 
   .sr-only {
