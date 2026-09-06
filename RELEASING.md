@@ -30,10 +30,16 @@ store or label it stable.
       start a countdown, open `chrome://extensions`, click "service worker" to
       inspect it, then force-stop it. Reopen the popup; the countdown must
       still show the correct remaining time.
-- [ ] Packaged-build alarm floor: with the same packaged build, confirm a
-      short (10s) countdown still produces a notification and sound
-      (may take up to ~30s, since a packaged MV3 build clamps `chrome.alarms`
-      to a 30-second floor) rather than never firing.
+- [ ] Chrome unpacked production smoke: load `.output/chrome-mv3/`, start a
+      35-second countdown, and confirm one notification and sound. Dismiss it
+      and confirm the sound stops. Chrome exempts unpacked extensions from its
+      alarm floor, so this duration stays above the production limit instead
+      of relying on that exemption.
+- [ ] Chrome packed-install alarm floor: install a Web Store-signed candidate,
+      an enterprise-installed CRX, or a local CRX on Linux. Do not use "Load
+      unpacked" for this check. Start a 10-second countdown and confirm Chrome
+      delivers one notification and sound after applying its 30-second floor;
+      dismissing the notification must stop the sound.
 - [ ] Sleep/wake reconciliation: set an alarm a few minutes out, put the
       computer to sleep past that time, wake it, and confirm one
       notification fires (not zero, not a replay).
