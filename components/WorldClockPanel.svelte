@@ -25,6 +25,7 @@
   let newLabel = $state('')
   let newColor = $state(ACCENT)
   let error = $state<string | null>(null)
+  let saving = $state(false)
   let planning = $state(false)
   let plannedTime = $state('')
 
@@ -97,7 +98,22 @@
     }
   }
 
-  function addZone() {
+  async function save(action: () => Promise<void>, failure: string): Promise<boolean> {
+    if (saving) return false
+    saving = true
+    error = null
+    try {
+      await action()
+      return true
+    } catch {
+      error = failure
+      return false
+    } finally {
+      saving = false
+    }
+  }
+
+  async function addZone() {
     const timeZone = newZone.trim()
     if (!timeZone) {
       error = 'Enter a time zone to add.'
@@ -120,22 +136,21 @@
       // rather than assuming it equals the list length.
       order: (entries.at(-1)?.order ?? -1) + 1,
     }
-    void worldClockActions.upsert(entry)
+    if (!(await save(() => worldClockActions.upsert(entry), 'Could not save that world clock. Try again.'))) return
     newZone = ''
     newLabel = ''
-    error = null
   }
 
-  function move(index: number, direction: -1 | 1) {
+  async function move(index: number, direction: -1 | 1) {
     const ids = entries.map((e) => e.id)
     const target = index + direction
     if (target < 0 || target >= ids.length) return
     ;[ids[index], ids[target]] = [ids[target], ids[index]]
-    void worldClockActions.reorder(ids)
+    await save(() => worldClockActions.reorder(ids), 'Could not reorder the world clocks. Try again.')
   }
 
-  function remove(entry: WorldClockEntry) {
-    void worldClockActions.remove(entry.id)
+  async function remove(entry: WorldClockEntry) {
+    await save(() => worldClockActions.remove(entry.id), 'Could not remove that world clock. Try again.')
   }
 </script>
 
@@ -183,20 +198,21 @@
                 type="button"
                 class="icon"
                 aria-label={`Move ${entry.label} up`}
-                disabled={index === 0}
+                disabled={saving || index === 0}
                 onclick={() => move(index, -1)}>↑</button
               >
               <button
                 type="button"
                 class="icon"
                 aria-label={`Move ${entry.label} down`}
-                disabled={index === entries.length - 1}
+                disabled={saving || index === entries.length - 1}
                 onclick={() => move(index, 1)}>↓</button
               >
               <button
                 type="button"
                 class="icon danger"
                 aria-label={`Remove ${entry.label}`}
+                disabled={saving}
                 onclick={() => remove(entry)}>✕</button
               >
             </span>
@@ -210,7 +226,7 @@
     class="add"
     onsubmit={(e) => {
       e.preventDefault()
-      addZone()
+      void addZone()
     }}
   >
     <input
@@ -219,6 +235,7 @@
       aria-label="Time zone"
       placeholder="Time zone (e.g. Asia/Tokyo)"
       autocomplete="off"
+      disabled={saving}
       bind:value={newZone}
     />
     <datalist id="chronly-zone-options">
@@ -226,9 +243,16 @@
         <option value={zone}></option>
       {/each}
     </datalist>
-    <input class="field label" type="text" aria-label="Label" placeholder="Label" bind:value={newLabel} />
-    <input class="swatch" type="color" aria-label="Colour" bind:value={newColor} />
-    <button class="add-button" type="submit">Add</button>
+    <input
+      class="field label"
+      type="text"
+      aria-label="Label"
+      placeholder="Label"
+      disabled={saving}
+      bind:value={newLabel}
+    />
+    <input class="swatch" type="color" aria-label="Colour" disabled={saving} bind:value={newColor} />
+    <button class="add-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Add'}</button>
   </form>
 
   {#if error}

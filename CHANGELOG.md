@@ -8,7 +8,7 @@ All notable changes to Chronly are documented here. The format follows
 ### Added
 
 - Digital and analog clocks with 12/24-hour, seconds, size, and contrast preferences.
-- Unlimited world clocks with UTC offsets, time differences, and meeting
+- Saved world clocks with UTC offsets, time differences, and meeting
   planning.
 - One-off and recurring alarms with redundant notification and audio firing,
   adjustable volume, test alerts, and snooze.
@@ -25,6 +25,8 @@ All notable changes to Chronly are documented here. The format follows
 
 ### Fixed
 
+- World-clock storage failures now keep entered values and show a retryable
+  error instead of clearing unsaved input.
 - Deleting an alarm, timer, or Pomodoro now clears its scheduled browser alarm,
   notification, and active sound.
 - Repeated delivery of the same alert no longer starts overlapping sound loops.

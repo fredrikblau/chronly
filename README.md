@@ -9,7 +9,7 @@
 
 Chronly is an open-source Chrome and Firefox extension for alarms, timers,
 stopwatch laps, world clocks, and focused work sessions. It has no ads,
-tracking, account, server, or artificial limits.
+tracking, account, or server.
 
 ![Chronly popup](docs/assets/popup-screenshot.png)
 ![Chronly alarm and sound controls](docs/assets/alarms-screenshot.png)
@@ -23,7 +23,7 @@ tracking, account, server, or artificial limits.
 
 **As a tester:**
 
-- [Chronly 0.1.0 RC3](https://github.com/fredrikblau/chronly/releases/tag/v0.1.0-rc.3)
+- [Chronly 0.1.0 RC4](https://github.com/fredrikblau/chronly/releases/tag/v0.1.0-rc.4)
   provides a Chrome developer-mode build and a temporary Firefox build. The
   release notes list the remaining manual checks.
 
@@ -63,7 +63,7 @@ network service after `npm ci` completes.
 The popup is a tabbed control center: clock, alarms, timers and stopwatch, world clocks, Pomodoro, and settings.
 
 - **Clock:** digital and analog faces, or both at once; 12- or 24-hour; optional seconds; adjustable text size and clock contrast.
-- **World clocks:** unlimited saved zones, each showing its local time, UTC offset, a plain-text difference from your own zone, and an at-a-glance "working hours / off hours / asleep" read on the people there. Meeting-planner mode lets you pick a time and see each saved zone at it. Zones come from your browser's time zone database, so there is no bundled city list to go stale.
+- **World clocks:** saved zones show local time, UTC offset, a plain-text difference from your own zone, and an at-a-glance "working hours / off hours / asleep" read on the people there. Meeting-planner mode lets you pick a time and see each saved zone at it. Zones come from your browser's time zone database, so there is no bundled city list to go stale.
 - **Alarms:** one-off or repeating on chosen weekdays, with selectable alert tones, a volume slider, a "test" button, and sound that repeats until you snooze or dismiss the notification. Chronly sends a system notification and plays sound so one blocked channel cannot cause a silent miss.
 - **Sounds:** eight bundled CC0 chimes with previews, plus import of your own MP3, WAV, OGG, M4A, AAC, FLAC, or WebM file. Imported audio stays in local extension storage.
 - **Timer & stopwatch:** several countdown timers running at once, with pause/resume, quick presets, and per-timer tone and volume; plus a dedicated stopwatch tab with lap splits that highlights the fastest and slowest lap. Both survive the popup closing and the browser restarting.
@@ -95,7 +95,6 @@ Chronly treats reliability as its primary feature.
 - Chronly persists each alarm, timer, and Pomodoro session as an absolute target time, so it survives background suspension, browser restarts, and computer sleep.
 - The popup and the background worker share one source of truth (extension storage) instead of messaging each other, so a closed popup or an evicted worker can't desynchronise them.
 - Chronly sends sound and a notification together so one blocked channel does not cause a silent miss.
-- No caps on the number of alarms, timers, or world clocks you can save.
 - No tracking, ads, or account.
 
 ## Contributing

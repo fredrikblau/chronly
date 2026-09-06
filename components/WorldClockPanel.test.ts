@@ -1,8 +1,9 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createExtensionStorageBackend, WorldClockStore } from '../lib/core/storage'
 import type { WorldClockEntry } from '../lib/core/types'
+import { worldClockActions } from '../lib/ui/worldClocks'
 import WorldClockPanel from './WorldClockPanel.svelte'
 
 const LOCAL_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -35,6 +36,7 @@ describe('WorldClockPanel', () => {
   beforeEach(() => {
     fakeBrowser.reset()
   })
+  afterEach(() => vi.restoreAllMocks())
 
   it('lists an existing world clock entry', async () => {
     await seed({ id: 'tokyo', timeZone: 'Asia/Tokyo', label: 'Tokyo' })
@@ -71,6 +73,27 @@ describe('WorldClockPanel', () => {
     await fireEvent.click(addButton())
 
     expect(await screen.findByText('Paris')).toBeInTheDocument()
+  })
+
+  it('keeps the form values when extension storage rejects an add', async () => {
+    let rejectWrite: (reason?: unknown) => void = () => undefined
+    vi.spyOn(worldClockActions, 'upsert').mockImplementation(
+      () => new Promise<void>((_resolve, reject) => (rejectWrite = reject)),
+    )
+    render(WorldClockPanel)
+
+    await fireEvent.input(zoneInput(), { target: { value: 'Europe/Paris' } })
+    await fireEvent.input(labelInput(), { target: { value: 'Paris' } })
+    await fireEvent.click(addButton())
+
+    expect(await screen.findByRole('button', { name: 'Saving…' })).toBeDisabled()
+    expect(zoneInput()).toBeDisabled()
+    rejectWrite(new Error('sync quota exceeded'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save')
+    expect(zoneInput()).toHaveValue('Europe/Paris')
+    expect(labelInput()).toHaveValue('Paris')
+    expect(addButton()).toBeEnabled()
   })
 
   it('falls back to the city part of the zone when no label is typed', async () => {
