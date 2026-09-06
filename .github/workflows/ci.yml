@@ -18,8 +18,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - run: npm run build
-      - run: npm run build:firefox
+      - run: npm run zip
+      - run: npm run zip:firefox
       - run: npm run verify:manifests
       - run: npm run lint:firefox
       - run: npx playwright install --with-deps chromium
