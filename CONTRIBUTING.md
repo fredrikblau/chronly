@@ -57,5 +57,6 @@ private file paths.
 
 ## Questions and conduct
 
-Open an issue or discussion when the intended behavior is unclear. Please read
-the [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+Open an issue or [start a discussion](https://github.com/fredrikblau/chronly/discussions)
+when the intended behavior is unclear. Please read the
+[Code of Conduct](CODE_OF_CONDUCT.md) before participating.

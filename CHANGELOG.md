@@ -27,3 +27,4 @@ All notable changes to Chronly are documented here. The format follows
 
 - Deleting an alarm, timer, or Pomodoro now clears its scheduled browser alarm,
   notification, and active sound.
+- Repeated delivery of the same alert no longer starts overlapping sound loops.

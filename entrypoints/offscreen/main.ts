@@ -13,6 +13,7 @@ browser.runtime.onMessage.addListener((message: unknown) => {
     return
   }
   if (!isPlaySoundMessage(message)) return
+  if (active.has(message.playbackId)) return
 
   const playback = { stopped: false }
   active.set(message.playbackId, playback)

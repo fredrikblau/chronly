@@ -226,6 +226,7 @@ export async function playAlarmSound(
     await sendToOffscreen(buildPlaySoundMessage(soundId, volume, playbackId, loop, audioDataUrl))
     return
   }
+  if (localAudio.has(playbackId) || localPlayback.has(playbackId)) return
   const builtInAudioUrl = resolveSoundPreset(soundId).sourceUrl
   const playableAudioUrl = audioDataUrl && isSafeAudioDataUrl(audioDataUrl) ? audioDataUrl : builtInAudioUrl
   if (playableAudioUrl && typeof Audio !== 'undefined') {

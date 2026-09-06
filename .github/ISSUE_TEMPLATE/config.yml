@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Questions and ideas
+    url: https://github.com/fredrikblau/chronly/discussions
+    about: Ask for help or discuss an idea with maintainers and contributors.
   - name: Documentation and contribution guide
     url: https://github.com/fredrikblau/chronly/blob/main/CONTRIBUTING.md
     about: Read the local setup, testing, and pull request guidance first.
