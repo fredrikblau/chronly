@@ -115,6 +115,13 @@ function ext(driver, body, ...args) {
   )
 }
 
+/** What Firefox's background page is playing, by playback id (the record id for a ring). */
+const soundStatus = (driver) =>
+  ext(
+    driver,
+    `return (await browser.runtime.sendMessage({ target: 'offscreen', type: 'sound-status' })) ?? { active: [], audible: [] }`,
+  )
+
 const readRecords = async (driver) =>
   Object.values((await ext(driver, `return (await browser.storage.local.get('records')).records ?? {}`)) ?? {})
 
@@ -201,10 +208,16 @@ describe('Chronly in Firefox', () => {
     const [timer] = await readRecords(driver)
     assert.equal(timer.status, 'completed')
 
+    // The background page is really playing the ring, and keeps it going.
+    await waitFor(driver, async () => (await soundStatus(driver)).audible.includes(timer.id), 'the ring to sound')
+    await driver.sleep(2500)
+    assert.ok((await soundStatus(driver)).audible.includes(timer.id), 'the ring stopped on its own')
+
     const [banner] = await ringingBanner(driver, 'Firefox tea')
     await button(banner, 'Dismiss Firefox tea').click()
     await waitFor(driver, async () => (await ringingBanner(driver, 'Firefox tea')).length === 0, 'the banner to clear')
     await waitFor(driver, async () => (await readRecords(driver)).length === 0, 'the finished timer to be removed')
+    await waitFor(driver, async () => !(await soundStatus(driver)).active.includes(timer.id), 'the ring to stop')
     assert.equal(await ext(driver, `return browser.action.getBadgeText({})`), '')
   })
 

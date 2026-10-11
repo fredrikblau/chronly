@@ -151,6 +151,33 @@ export function isPlaySoundMessage(message: unknown): message is PlaySoundMessag
   )
 }
 
+/**
+ * Asks Chrome's offscreen document what it is playing. Read-only: it exists so
+ * the end-to-end suite can confirm a ring really started and really stopped,
+ * which is otherwise only checkable by ear.
+ */
+export interface SoundStatusMessage {
+  target: 'offscreen'
+  type: 'sound-status'
+}
+
+export interface SoundStatus {
+  /** Playback ids with a sound loop in progress. */
+  active: string[]
+  /** Of those, the ones whose audio element is currently playing. */
+  audible: string[]
+}
+
+export function buildSoundStatusMessage(): SoundStatusMessage {
+  return { target: 'offscreen', type: 'sound-status' }
+}
+
+export function isSoundStatusMessage(message: unknown): message is SoundStatusMessage {
+  if (typeof message !== 'object' || message === null) return false
+  const candidate = message as Partial<SoundStatusMessage>
+  return candidate.target === 'offscreen' && candidate.type === 'sound-status'
+}
+
 export function isStopSoundMessage(message: unknown): message is StopSoundMessage {
   if (typeof message !== 'object' || message === null) return false
   const candidate = message as Partial<StopSoundMessage>
@@ -314,6 +341,14 @@ export async function playAlarmSound(
       await playPresetLocally(soundId, volume)
     } while (loop && !playback.stopped)
     localPlayback.delete(playbackId)
+  }
+}
+
+/** What this context is playing itself: Firefox's background page, or a popup preview. */
+export function localSoundStatus(): SoundStatus {
+  return {
+    active: [...new Set([...localPlayback.keys(), ...localAudio.keys()])],
+    audible: [...localAudio].filter(([, audio]) => !audio.paused).map(([id]) => id),
   }
 }
 

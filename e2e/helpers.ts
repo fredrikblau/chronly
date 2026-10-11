@@ -9,6 +9,7 @@ export interface ChromeApi {
   alarms: { getAll(): Promise<Array<{ name: string; scheduledTime: number }>> }
   notifications: { getAll(): Promise<Record<string, unknown>> }
   action: { getBadgeText(details: object): Promise<string> }
+  runtime: { sendMessage(message: object): Promise<unknown> }
   storage: Record<'local' | 'sync' | 'session', StorageArea>
 }
 
@@ -105,6 +106,18 @@ export async function recordAlarmNames(page: Page): Promise<string[]> {
   return page.evaluate(async () =>
     (await chrome.alarms.getAll()).map(({ name }) => name).filter((name) => name.startsWith('record:')),
   )
+}
+
+/**
+ * What Chrome's offscreen document is playing right now, by playback id (the
+ * record id for a ring). Lets a spec confirm the sound really started and
+ * really stopped, rather than taking it on trust.
+ */
+export async function soundStatus(page: Page): Promise<{ active: string[]; audible: string[] }> {
+  const reply = (await page.evaluate(() =>
+    chrome.runtime.sendMessage({ target: 'offscreen', type: 'sound-status' }),
+  )) as { active: string[]; audible: string[] } | undefined
+  return reply ?? { active: [], audible: [] }
 }
 
 export async function badgeText(page: Page): Promise<string> {

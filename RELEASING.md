@@ -68,6 +68,8 @@ popup, Pomodoro phases, the stopwatch, world clocks, sound import, and
 backgrounds. WebDriver may not navigate to `moz-extension://` pages directly,
 so the suite opens the popup from Firefox's privileged chrome context.
 
-Automation cannot hear audio or see a desktop notification, so still run the
-Firefox temporary smoke above by hand. Firefox unloads temporary add-ons at
+Both suites also confirm a ring's audio element is really playing, keeps
+playing, and stops on Snooze or Dismiss. They cannot hear the speakers or see
+the desktop notification itself, so still run the Firefox temporary smoke
+above by hand. Firefox unloads temporary add-ons at
 restart; use a signed or development-edition install for the restart check.

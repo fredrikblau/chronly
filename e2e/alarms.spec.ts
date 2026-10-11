@@ -10,6 +10,7 @@ import {
   readStorage,
   recordAlarmNames,
   seedRecord,
+  soundStatus,
 } from './helpers'
 
 test('creates a repeating alarm and schedules it with the browser', async ({ context, extensionId }) => {
@@ -125,10 +126,12 @@ test('a due alarm rings, shows in the popup, and snoozes from the banner', async
   await expect(banner).toBeVisible({ timeout: 15_000 })
   await expect.poll(() => notificationIds(page)).toContain(`chronly-alarm-${alarm.id}`)
   await expect.poll(() => badgeText(page)).toBe('!')
+  await expect.poll(async () => (await soundStatus(page)).audible).toContain(alarm.id)
 
   await banner.getByRole('button', { name: 'Snooze 5 min Ring test' }).click()
 
   await expect(banner).toBeHidden()
+  await expect.poll(async () => (await soundStatus(page)).active).not.toContain(alarm.id)
   await expect.poll(() => notificationIds(page)).toEqual([])
   await expect.poll(() => badgeText(page)).toBe('')
   const [snoozed] = await readRecords(page)

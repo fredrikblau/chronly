@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser'
 import { isAlertActionMessage } from '../lib/core/alerts'
-import { playAlarmSound, stopAlarmSound } from '../lib/core/audio'
+import { isSoundStatusMessage, localSoundStatus, playAlarmSound, stopAlarmSound } from '../lib/core/audio'
 import {
   buildNotificationSpec,
   NOTIFICATION_ACTIONS,
@@ -355,7 +355,12 @@ export default defineBackground(() => {
 
   // The popup's ringing banner. Replying keeps the popup's sendMessage promise
   // pending until the action is done, so it can report a failure.
-  browser.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: (ok: boolean) => void) => {
+  browser.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: (reply: unknown) => void) => {
+    if (isSoundStatusMessage(message)) {
+      // Chrome plays in its offscreen document, which answers for itself.
+      if (!('offscreen' in browser)) sendResponse(localSoundStatus())
+      return
+    }
     if (!isAlertActionMessage(message)) return
     handleAlertAction(store, message.recordId, message.action, Date.now()).then(
       () => sendResponse(true),

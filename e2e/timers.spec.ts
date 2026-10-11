@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import { test } from './fixtures'
-import { notificationIds, openPopup, openTab, readRecords, recordAlarmNames } from './helpers'
+import { notificationIds, openPopup, openTab, readRecords, recordAlarmNames, soundStatus } from './helpers'
 
 test('starts, pauses, resumes, extends, and deletes a timer', async ({ context, extensionId }) => {
   const page = await openPopup(context, extensionId)
@@ -77,9 +77,14 @@ test('dismissing a finished timer from the banner clears it', async ({ context, 
 
   const banner = page.getByRole('alert').filter({ hasText: 'Kettle' })
   await expect(banner).toBeVisible({ timeout: 15_000 })
+  // The ring keeps sounding until someone dismisses it.
+  await expect.poll(async () => (await soundStatus(page)).audible).toHaveLength(1)
+  await page.waitForTimeout(2500)
+  expect((await soundStatus(page)).audible).toHaveLength(1)
   await banner.getByRole('button', { name: 'Dismiss Kettle' }).click()
 
   await expect(banner).toBeHidden()
+  await expect.poll(async () => (await soundStatus(page)).active).toEqual([])
   await expect(timers.getByText('No timers running')).toBeVisible()
   await expect.poll(() => notificationIds(page)).toEqual([])
 })

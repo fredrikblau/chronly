@@ -31,6 +31,8 @@ import {
 vi.mock('../lib/core/audio', () => ({
   playAlarmSound: vi.fn(async () => {}),
   stopAlarmSound: vi.fn(async () => {}),
+  isSoundStatusMessage: vi.fn(() => false),
+  localSoundStatus: vi.fn(() => ({ active: [], audible: [] })),
 }))
 
 const NOW = 1_770_000_000_000
