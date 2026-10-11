@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store'
+import { get, writable } from 'svelte/store'
 
 /**
  * One short message at the bottom of the popup, optionally with an action.
@@ -10,6 +10,7 @@ export interface Toast {
   message: string
   actionLabel?: string
   action?: () => Promise<void> | void
+  durationMs: number
 }
 
 export const TOAST_MS = 6000
@@ -25,14 +26,34 @@ export function showToast(
   options: { actionLabel?: string; action?: Toast['action']; durationMs?: number } = {},
 ): number {
   const id = ++nextId
-  clearTimeout(timer)
-  store.set({ id, message, actionLabel: options.actionLabel, action: options.action })
-  timer = setTimeout(() => dismissToast(id), options.durationMs ?? TOAST_MS)
+  const durationMs = options.durationMs ?? TOAST_MS
+  store.set({ id, message, actionLabel: options.actionLabel, action: options.action, durationMs })
+  startTimer(id, durationMs)
   return id
+}
+
+function startTimer(id: number, durationMs: number): void {
+  clearTimeout(timer)
+  timer = setTimeout(() => dismissToast(id), durationMs)
+}
+
+/**
+ * Keep the toast up while someone points at it or has focus inside it, so
+ * nobody has to race the clock to reach Undo (WCAG 2.2.1).
+ */
+export function holdToast(): void {
+  clearTimeout(timer)
+}
+
+/** Start the full countdown again once the pointer or focus leaves. */
+export function releaseToast(): void {
+  const current = get(store)
+  if (current) startTimer(current.id, current.durationMs)
 }
 
 /** Hide the toast, or only the given one if a newer toast has replaced it. */
 export function dismissToast(id?: number): void {
+  if (id === undefined || get(store)?.id === id) clearTimeout(timer)
   store.update((current) => (id === undefined || current?.id === id ? null : current))
 }
 

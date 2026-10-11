@@ -1,6 +1,6 @@
 import { get } from 'svelte/store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { dismissToast, offerUndo, showToast, toast, TOAST_MS } from './toast'
+import { dismissToast, holdToast, offerUndo, releaseToast, showToast, toast, TOAST_MS } from './toast'
 
 describe('toast', () => {
   beforeEach(() => {
@@ -25,6 +25,26 @@ describe('toast', () => {
     vi.advanceTimersByTime(200)
 
     expect(get(toast)?.message).toBe('Second')
+  })
+
+  it('stays up while held, then gets its full time again once released', () => {
+    showToast('Deleted')
+    vi.advanceTimersByTime(TOAST_MS - 1000)
+    holdToast()
+    vi.advanceTimersByTime(TOAST_MS * 3)
+    expect(get(toast)?.message).toBe('Deleted')
+
+    releaseToast()
+    vi.advanceTimersByTime(TOAST_MS - 1)
+    expect(get(toast)?.message).toBe('Deleted')
+    vi.advanceTimersByTime(1)
+    expect(get(toast)).toBeNull()
+  })
+
+  it('does nothing on release when no toast is showing', () => {
+    releaseToast()
+    vi.advanceTimersByTime(TOAST_MS)
+    expect(get(toast)).toBeNull()
   })
 
   it('offers Undo with the restore action', async () => {

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { dismissToast, showToast, toast } from '../lib/ui/toast'
+  import { isTyping } from '../lib/ui/keyboard'
+  import { dismissToast, holdToast, releaseToast, showToast, toast } from '../lib/ui/toast'
   import Icon from './Icon.svelte'
 
   let busy = $state(false)
@@ -17,14 +18,38 @@
       busy = false
     }
   }
+
+  /** Ctrl+Z (⌘Z on a Mac) undoes while the message is up, outside text fields. */
+  function onWindowKeydown(event: KeyboardEvent) {
+    if (!$toast?.action || event.key.toLowerCase() !== 'z' || event.shiftKey || event.altKey) return
+    if (!(event.ctrlKey || event.metaKey) || isTyping(event.target)) return
+    event.preventDefault()
+    void act()
+  }
 </script>
 
-<div class="toast-region" role="status" aria-live="polite">
+<svelte:window onkeydown={onWindowKeydown} />
+
+<div
+  class="toast-region"
+  role="status"
+  aria-live="polite"
+  onpointerenter={holdToast}
+  onpointerleave={releaseToast}
+  onfocusin={holdToast}
+  onfocusout={releaseToast}
+>
   {#if $toast}
     <div class="toast">
       <span class="message">{$toast.message}</span>
       {#if $toast.actionLabel}
-        <button type="button" class="btn btn-sm action" disabled={busy} onclick={() => void act()}>
+        <button
+          type="button"
+          class="btn btn-sm action"
+          disabled={busy}
+          aria-keyshortcuts="Control+Z Meta+Z"
+          onclick={() => void act()}
+        >
           {$toast.actionLabel}
         </button>
       {/if}

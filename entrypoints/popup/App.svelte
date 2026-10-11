@@ -16,6 +16,7 @@
   import { createNowStore } from '../../lib/ui/now'
   import { resolveCanvas, SURFACE_BG, surfaceOf } from '../../lib/ui/palette'
   import { settings } from '../../lib/ui/settings'
+  import { isTyping } from '../../lib/ui/keyboard'
   import { beginStorageLoad, storageLoadState } from '../../lib/ui/storageLoad'
   import { toast } from '../../lib/ui/toast'
 
@@ -116,14 +117,6 @@
     if (delta === 0) return
     event.preventDefault()
     selectTab(TABS[(index + delta + TABS.length) % TABS.length].id, true)
-  }
-
-  function isTyping(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false
-    if (target.isContentEditable) return true
-    if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
-    if (!(target instanceof HTMLInputElement)) return false
-    return !['checkbox', 'radio', 'button', 'range', 'color', 'submit'].includes(target.type)
   }
 
   /** 1–7 jump straight to a tab, the way numbered tabs work in a browser. */

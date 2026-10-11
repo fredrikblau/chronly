@@ -109,6 +109,23 @@ describe('popup App', () => {
     expect(await screen.findByRole('button', { name: 'Delete alarm Undo me' })).toBeInTheDocument()
   })
 
+  it('undoes a delete with Ctrl+Z, but leaves Ctrl+Z in a text field alone', async () => {
+    const store = new RecordStore(createExtensionStorageBackend('local'))
+    const alarm = createAlarm('Keyboard undo', Date.now() + 3_600_000, Date.now())
+    await store.upsert(alarm)
+    render(App)
+    await fireEvent.click(screen.getByRole('tab', { name: 'Alarms' }))
+    await fireEvent.click(await screen.findByRole('button', { name: 'Delete alarm Keyboard undo' }))
+    await waitFor(async () => expect(await store.getAll()).toEqual([]))
+    expect(await screen.findByText('Deleted “Keyboard undo”')).toBeInTheDocument()
+
+    await fireEvent.keyDown(document.getElementById('alarm-label')!, { key: 'z', ctrlKey: true })
+    expect(await store.getAll()).toEqual([])
+
+    await fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+    await waitFor(async () => expect(await store.getAll()).toEqual([alarm]))
+  })
+
   it('keeps inactive panels mounted so their storage subscriptions stay live', async () => {
     const { container } = render(App)
     await fireEvent.click(screen.getByRole('tab', { name: 'Alarms' }))

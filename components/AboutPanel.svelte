@@ -23,6 +23,7 @@
     { keys: '← →', action: 'Move between tabs' },
     { keys: 'Space', action: 'Start or pause the stopwatch' },
     { keys: 'L', action: 'Record a stopwatch lap' },
+    { keys: 'Ctrl+Z', action: 'Undo a delete (⌘Z on a Mac)' },
   ]
 
   let fileInput: HTMLInputElement

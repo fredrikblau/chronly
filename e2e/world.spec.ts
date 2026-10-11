@@ -28,6 +28,27 @@ test('adds cities by name, reorders and removes them', async ({ context, extensi
   await expect(rows).toHaveCount(2)
   const saved = await readStorage<Array<{ label: string }>>(page, 'sync', 'worldClocks')
   expect(saved.map((entry) => entry.label).sort()).toEqual(['San Francisco', 'Tokyo'])
+
+  // Ctrl+Z (⌘Z on a Mac) undoes the removal and puts the city back where it was.
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect(rows).toHaveCount(3)
+  await expect(rows.nth(0)).toContainText('New York')
+})
+
+test('the Undo message waits while the pointer is on it', async ({ context, extensionId }) => {
+  const page = await openPopup(context, extensionId)
+  const world = await openTab(page, 'World')
+  await world.getByLabel('Time zone', { exact: true }).fill('Lisbon')
+  await world.getByRole('button', { name: 'Add' }).click()
+  await world.getByRole('button', { name: 'Remove Lisbon' }).click()
+
+  const message = page.getByRole('status').filter({ hasText: 'Removed Lisbon' })
+  await message.hover()
+  await page.waitForTimeout(7_000)
+  await expect(message).toBeVisible()
+
+  await page.mouse.move(5, 5)
+  await expect(message).toBeHidden({ timeout: 8_000 })
 })
 
 test('rejects a place it cannot find and a duplicate', async ({ context, extensionId }) => {

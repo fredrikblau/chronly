@@ -73,17 +73,18 @@ around not letting that happen.
 | **Sounds**       | Eight bundled CC0 tones, or import your own MP3, WAV, OGG, M4A, AAC, FLAC, or WebM file.                                                                                                                                           |
 | **Appearance**   | Light, dark, or automatic themes; digital, analog, or both clock faces; gradients and accent colours; text size; reduced motion.                                                                                                   |
 | **Backup**       | Export alarms, world clocks, and appearance to a JSON file and import them on another browser.                                                                                                                                     |
-| **Undo**         | Deleting an alarm, timer, world clock, or focus session takes one click, and the message that follows offers Undo.                                                                                                                 |
+| **Undo**         | Deleting an alarm, timer, world clock, or focus session takes one click, and the message that follows offers Undo (or press <kbd>Ctrl</kbd>+<kbd>Z</kbd>).                                                                         |
 
 ### Keyboard
 
-| Key                                          | Action                                                                      |
-| -------------------------------------------- | --------------------------------------------------------------------------- |
-| <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> | Open Chronly from any tab (change it in your browser's extension shortcuts) |
-| <kbd>1</kbd>–<kbd>7</kbd>                    | Switch tab                                                                  |
-| <kbd>←</kbd> <kbd>→</kbd>                    | Move between tabs                                                           |
-| <kbd>Space</kbd>                             | Start or pause the stopwatch                                                |
-| <kbd>L</kbd>                                 | Record a stopwatch lap                                                      |
+| Key                                                      | Action                                                                      |
+| -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd>             | Open Chronly from any tab (change it in your browser's extension shortcuts) |
+| <kbd>1</kbd>–<kbd>7</kbd>                                | Switch tab                                                                  |
+| <kbd>←</kbd> <kbd>→</kbd>                                | Move between tabs                                                           |
+| <kbd>Space</kbd>                                         | Start or pause the stopwatch                                                |
+| <kbd>L</kbd>                                             | Record a stopwatch lap                                                      |
+| <kbd>Ctrl</kbd>+<kbd>Z</kbd> (<kbd>⌘</kbd>+<kbd>Z</kbd>) | Undo a delete while its message shows                                       |
 
 ## Install
 
