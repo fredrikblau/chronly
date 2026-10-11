@@ -21,6 +21,14 @@ export default defineConfig({
     description:
       'Private world clocks, alarms, timers, stopwatch laps, and Pomodoro sessions that keep working when the popup closes.',
     permissions: ['alarms', 'notifications', 'storage', ...(browser === 'chrome' ? ['offscreen'] : [])],
+    // Opens the popup from the keyboard. Only a suggestion: people can change
+    // or clear it in the browser's extension shortcut settings.
+    commands: {
+      _execute_action: {
+        suggested_key: { default: 'Alt+Shift+K' },
+        description: 'Open Chronly',
+      },
+    },
     browser_specific_settings: {
       gecko: {
         id: '@chronly',

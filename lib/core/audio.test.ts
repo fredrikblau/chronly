@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildPlaySoundMessage,
   buildStopSoundMessage,
+  FADE_IN_MS,
+  fadeIn,
   isPlaySoundMessage,
   isSafeAudioDataUrl,
   isSoundStatusMessage,
@@ -37,7 +39,58 @@ describe('buildPlaySoundMessage', () => {
       volume: 0.5,
       playbackId: 'alarm-1',
       loop: true,
+      fadeInMs: 0,
     })
+  })
+
+  it('carries a gentle-wake fade', () => {
+    const message = buildPlaySoundMessage('chime', 0.5, 'alarm-1', true, undefined, FADE_IN_MS)
+    expect(message.fadeInMs).toBe(30_000)
+    expect(isPlaySoundMessage(message)).toBe(true)
+  })
+})
+
+describe('fadeIn', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('sets full volume at once when there is no fade', () => {
+    const audio = { volume: 0 }
+    fadeIn(audio, 0.8, 0)
+    expect(audio.volume).toBe(0.8)
+  })
+
+  it('starts quiet and rises steadily to the set volume', () => {
+    vi.useFakeTimers()
+    const audio = { volume: 1 }
+    fadeIn(audio, 0.8, 30_000)
+    expect(audio.volume).toBeCloseTo(0.05)
+
+    vi.advanceTimersByTime(15_000)
+    expect(audio.volume).toBeCloseTo(0.425)
+
+    vi.advanceTimersByTime(15_000)
+    expect(audio.volume).toBeCloseTo(0.8)
+    vi.advanceTimersByTime(10_000)
+    expect(audio.volume).toBeCloseTo(0.8)
+  })
+
+  it('never starts louder than the set volume', () => {
+    const audio = { volume: 1 }
+    fadeIn(audio, 0.02, 30_000)
+    expect(audio.volume).toBe(0.02)
+  })
+
+  it('stops rising once stopped', () => {
+    vi.useFakeTimers()
+    const audio = { volume: 0 }
+    const stop = fadeIn(audio, 1, 10_000)
+    vi.advanceTimersByTime(2_000)
+    const reached = audio.volume
+    stop()
+    vi.advanceTimersByTime(10_000)
+    expect(audio.volume).toBe(reached)
   })
 })
 
@@ -68,6 +121,10 @@ describe('isPlaySoundMessage', () => {
     ['an infinite volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: Infinity }],
     ['a negative volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: -0.1 }],
     ['an over-range volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: 1.1 }],
+    [
+      'a negative fade',
+      { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: 1, playbackId: 'p', loop: true, fadeInMs: -1 },
+    ],
   ])('rejects %s', (_label, message) => {
     expect(isPlaySoundMessage(message)).toBe(false)
   })

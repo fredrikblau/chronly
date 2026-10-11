@@ -2,9 +2,12 @@
   import { SOUND_PRESETS } from '../lib/core/audio'
   import { createCountdown, extendCountdown, pauseRecord, resumeRecord } from '../lib/core/scheduler'
   import type { CountdownRecord } from '../lib/core/types'
+  import { formatAlarmClock } from '../lib/ui/alarmTime'
   import { formatCountdown, spokenCountdown } from '../lib/ui/format'
   import { createNowStore } from '../lib/ui/now'
   import { recordActions, records } from '../lib/ui/records'
+  import { settings } from '../lib/ui/settings'
+  import { offerUndo } from '../lib/ui/toast'
   import Icon from './Icon.svelte'
   import SoundPicker from './SoundPicker.svelte'
 
@@ -118,7 +121,9 @@
   }
 
   async function remove(record: CountdownRecord) {
-    await save(() => recordActions.remove(record.id), 'Could not delete that timer. Try again.')
+    if (await save(() => recordActions.remove(record.id), 'Could not delete that timer. Try again.')) {
+      offerUndo(`Deleted “${record.label}”`, () => recordActions.upsert(record))
+    }
   }
 </script>
 
@@ -150,6 +155,8 @@
               <span class="timer-label" title={countdown.label}>{countdown.label}</span>
               {#if countdown.status === 'paused'}
                 <span class="chip">Paused</span>
+              {:else if countdown.status === 'running'}
+                <span class="timer-ends">Ends {formatAlarmClock(countdown.targetTimestamp, $settings.hour12)}</span>
               {/if}
             </div>
             <span
@@ -330,6 +337,13 @@
     align-items: center;
     gap: 0.4rem;
     min-width: 0;
+  }
+
+  .timer-ends {
+    color: var(--fg-muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   .timer-label {

@@ -81,6 +81,16 @@ test('deletes an alarm and its scheduled wake-up', async ({ context, extensionId
 
   await expect(alarms.getByText('No alarms yet')).toBeVisible()
   await expect.poll(() => recordAlarmNames(page)).toHaveLength(0)
+
+  // Deleting is instant, so the popup offers Undo, which brings back the alarm
+  // and its schedule.
+  await page
+    .getByRole('status')
+    .filter({ hasText: 'Deleted “Temporary”' })
+    .getByRole('button', { name: 'Undo' })
+    .click()
+  await expect(alarms.getByRole('listitem').filter({ hasText: 'Temporary' })).toBeVisible()
+  await expect.poll(() => recordAlarmNames(page)).toHaveLength(1)
 })
 
 test('Test fires a preview notification and sound without saving', async ({ context, extensionId }) => {
@@ -142,6 +152,42 @@ test('a due alarm rings, shows in the popup, and snoozes from the banner', async
   expect(snoozed?.snoozedUntil).toBeGreaterThan(Date.now() + 4 * 60_000)
   const alarms = await openTab(page, 'Alarms')
   await expect(alarms.getByRole('listitem').filter({ hasText: 'Ring test' })).toContainText('Snoozed')
+})
+
+test('snoozes for the length picked in Settings', async ({ context, extensionId }) => {
+  const page = await openPopup(context, extensionId)
+  const settings = await openTab(page, 'Settings')
+  await settings.getByRole('button', { name: 'Snooze for 10 minutes' }).click()
+  await expect(settings.getByRole('button', { name: 'Snooze for 10 minutes' })).toHaveAttribute('aria-pressed', 'true')
+
+  const alarm = dueAlarm('Long snooze', 1500)
+  await seedRecord(page, alarm)
+  const banner = page.getByRole('alert').filter({ hasText: 'Long snooze' })
+  await expect(banner).toBeVisible({ timeout: 15_000 })
+  await banner.getByRole('button', { name: 'Snooze 10 min Long snooze' }).click()
+
+  await expect(banner).toBeHidden()
+  const [snoozed] = await readRecords(page)
+  expect(snoozed?.snoozedUntil).toBeGreaterThan(Date.now() + 9 * 60_000)
+})
+
+test('gentle wake starts an alarm quietly and raises its volume', async ({ context, extensionId }) => {
+  const page = await openPopup(context, extensionId)
+  const settings = await openTab(page, 'Settings')
+  await settings.getByRole('switch', { name: 'Gentle wake' }).check()
+  await expect
+    .poll(async () => (await readStorage<{ gentleWake?: boolean }>(page, 'sync', 'settings'))?.gentleWake)
+    .toBe(true)
+
+  const alarm = { ...dueAlarm('Sunrise', 1500), volume: 0.8 }
+  await seedRecord(page, alarm)
+  await expect(page.getByRole('alert').filter({ hasText: 'Sunrise' })).toBeVisible({ timeout: 15_000 })
+  await expect.poll(async () => (await soundStatus(page)).audible).toContain(alarm.id)
+
+  const level = async () => (await soundStatus(page)).levels[alarm.id] ?? 0
+  const first = await level()
+  expect(first).toBeLessThan(0.3)
+  await expect.poll(level, { timeout: 10_000 }).toBeGreaterThan(first + 0.05)
 })
 
 test('dismissing a rung one-off alarm switches it off but keeps it', async ({ context, extensionId }) => {

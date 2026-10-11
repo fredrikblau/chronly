@@ -47,40 +47,43 @@ around not letting that happen.
   system notification fire together. If the notification is blocked, hidden by
   Do Not Disturb, or times out, the alarm keeps ringing: the toolbar icon shows
   a badge and the popup offers Snooze and Dismiss. On Firefox, where
-  notifications have no buttons, click the notification or use the popup.
+  notifications have no buttons, click the notification or use the popup. If
+  notifications are turned off for Chronly, the popup says so.
 - **It stays yours.** No account, analytics, ads, remote code, or host
   permissions. Everything is stored in your browser, and you can export it to a
   file.
 - **It's for everyone.** Keyboard shortcuts, screen-reader labels, reduced
   motion, adjustable text size, and an automated WCAG 2.1 AA audit of every
   tab in both themes.
-- **It's open.** MIT licensed, with around 400 unit tests and end-to-end suites
+- **It's open.** MIT licensed, with over 400 unit tests and end-to-end suites
   that drive the real extension in both Chromium and Firefox on every pull
   request.
 
 ## Features
 
-| Feature          | What you get                                                                                                                                                                                                         |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Overview**     | The time, what rings next, live timers, your focus session, one-click quick timers, and a glance at world clocks.                                                                                                    |
-| **Toolbar**      | A badge while anything rings, and a tooltip naming the next alarm.                                                                                                                                                   |
-| **Alarms**       | One-off or repeating on chosen days, an on/off switch, in-place editing, snooze, a Test button, and calendar export (Google Calendar or `.ics`).                                                                     |
-| **Timers**       | As many countdowns as you like, with an hours field, pause and resume, +1 minute, and restart.                                                                                                                       |
-| **Stopwatch**    | Lap splits, with the fastest and slowest lap highlighted. Keeps running with the popup closed.                                                                                                                       |
-| **World clocks** | Type a city the way you write it ("new york", "São Paulo", "San Francisco"), and see offsets, day differences, and whether people there are at work or asleep. Meeting-planner mode checks a time across every zone. |
-| **Focus**        | Pomodoro cycles that advance in the background, with Skip, presets, today's count, and a 7-day chart.                                                                                                                |
-| **Sounds**       | Eight bundled CC0 tones, or import your own MP3, WAV, OGG, M4A, AAC, FLAC, or WebM file.                                                                                                                             |
-| **Appearance**   | Light, dark, or automatic themes; digital, analog, or both clock faces; gradients and accent colours; text size; reduced motion.                                                                                     |
-| **Backup**       | Export alarms, world clocks, and appearance to a JSON file and import them on another browser.                                                                                                                       |
+| Feature          | What you get                                                                                                                                                                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**     | The time, what rings next, live timers, your focus session, one-click quick timers, and a glance at world clocks.                                                                                                                  |
+| **Toolbar**      | A badge while anything rings, a tooltip naming the next alarm, and <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> to open the popup from any tab.                                                                                    |
+| **Alarms**       | One-off or repeating on chosen days, an on/off switch, in-place editing, a snooze length you choose, optional gentle wake that fades the sound in over 30 seconds, a Test button, and calendar export (Google Calendar or `.ics`). |
+| **Timers**       | As many countdowns as you like, each showing when it ends, with an hours field, pause and resume, +1 minute, and restart.                                                                                                          |
+| **Stopwatch**    | Lap splits, with the fastest and slowest lap highlighted. Keeps running with the popup closed.                                                                                                                                     |
+| **World clocks** | Type a city the way you write it ("new york", "São Paulo", "San Francisco"), and see offsets, day differences, and whether people there are at work or asleep. Meeting-planner mode checks a time across every zone.               |
+| **Focus**        | Pomodoro cycles that advance in the background, with Skip, presets, today's count, and a 7-day chart.                                                                                                                              |
+| **Sounds**       | Eight bundled CC0 tones, or import your own MP3, WAV, OGG, M4A, AAC, FLAC, or WebM file.                                                                                                                                           |
+| **Appearance**   | Light, dark, or automatic themes; digital, analog, or both clock faces; gradients and accent colours; text size; reduced motion.                                                                                                   |
+| **Backup**       | Export alarms, world clocks, and appearance to a JSON file and import them on another browser.                                                                                                                                     |
+| **Undo**         | Deleting an alarm, timer, world clock, or focus session takes one click, and the message that follows offers Undo.                                                                                                                 |
 
 ### Keyboard
 
-| Key                       | Action                       |
-| ------------------------- | ---------------------------- |
-| <kbd>1</kbd>–<kbd>7</kbd> | Switch tab                   |
-| <kbd>←</kbd> <kbd>→</kbd> | Move between tabs            |
-| <kbd>Space</kbd>          | Start or pause the stopwatch |
-| <kbd>L</kbd>              | Record a stopwatch lap       |
+| Key                                          | Action                                                                      |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> | Open Chronly from any tab (change it in your browser's extension shortcuts) |
+| <kbd>1</kbd>–<kbd>7</kbd>                    | Switch tab                                                                  |
+| <kbd>←</kbd> <kbd>→</kbd>                    | Move between tabs                                                           |
+| <kbd>Space</kbd>                             | Start or pause the stopwatch                                                |
+| <kbd>L</kbd>                                 | Record a stopwatch lap                                                      |
 
 ## Install
 

@@ -11,6 +11,7 @@
   import { worldClocks } from '../lib/ui/worldClocks'
   import ClockFace from './ClockFace.svelte'
   import Icon from './Icon.svelte'
+  import NotificationWarning from './NotificationWarning.svelte'
 
   type Destination = 'alarms' | 'timers' | 'stopwatch' | 'world' | 'focus'
 
@@ -89,6 +90,8 @@
     />
     <p class="date">{longDate}</p>
   </div>
+
+  <NotificationWarning />
 
   {#if hasActivity}
     <section class="block" aria-labelledby="overview-upnext">

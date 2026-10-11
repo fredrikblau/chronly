@@ -113,11 +113,18 @@ export async function recordAlarmNames(page: Page): Promise<string[]> {
  * record id for a ring). Lets a spec confirm the sound really started and
  * really stopped, rather than taking it on trust.
  */
-export async function soundStatus(page: Page): Promise<{ active: string[]; audible: string[] }> {
+export interface SoundStatus {
+  active: string[]
+  audible: string[]
+  /** Volume of each playing sound, 0..1, so a spec can watch gentle wake rise. */
+  levels: Record<string, number>
+}
+
+export async function soundStatus(page: Page): Promise<SoundStatus> {
   const reply = (await page.evaluate(() =>
     chrome.runtime.sendMessage({ target: 'offscreen', type: 'sound-status' }),
-  )) as { active: string[]; audible: string[] } | undefined
-  return reply ?? { active: [], audible: [] }
+  )) as SoundStatus | undefined
+  return reply ?? { active: [], audible: [], levels: {} }
 }
 
 export async function toolbarTitle(page: Page): Promise<string> {

@@ -12,6 +12,7 @@
   import type { WorldClockEntry } from '../lib/core/types'
   import { createNowStore } from '../lib/ui/now'
   import { settings } from '../lib/ui/settings'
+  import { offerUndo } from '../lib/ui/toast'
   import { worldClockActions, worldClocks } from '../lib/ui/worldClocks'
   import Icon from './Icon.svelte'
 
@@ -151,7 +152,9 @@
   }
 
   async function remove(entry: WorldClockEntry) {
-    await save(() => worldClockActions.remove(entry.id), 'Could not remove that world clock. Try again.')
+    if (await save(() => worldClockActions.remove(entry.id), 'Could not remove that world clock. Try again.')) {
+      offerUndo(`Removed ${entry.label}`, () => worldClockActions.upsert(entry))
+    }
   }
 </script>
 

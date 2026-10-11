@@ -23,7 +23,9 @@
   import { createNowStore } from '../lib/ui/now'
   import { records, recordActions } from '../lib/ui/records'
   import { settings } from '../lib/ui/settings'
+  import { offerUndo } from '../lib/ui/toast'
   import Icon from './Icon.svelte'
+  import NotificationWarning from './NotificationWarning.svelte'
   import SoundPicker from './SoundPicker.svelte'
 
   // Only the relative "rings in ..." captions depend on this, and they are
@@ -159,8 +161,10 @@
   }
 
   async function removeAlarm(id: string) {
+    const removed = alarms.find((alarm) => alarm.id === id)
     if (await save(() => recordActions.remove(id), 'Could not delete that alarm. Try again.')) {
       if (editingId === id) resetForm()
+      if (removed) offerUndo(`Deleted “${removed.label}”`, () => recordActions.upsert(removed))
     }
   }
 
@@ -217,6 +221,8 @@
       <span class="panel-meta">{armedCount} of {alarms.length} on</span>
     {/if}
   </header>
+
+  <NotificationWarning />
 
   {#if alarms.length === 0}
     <div class="empty-state">

@@ -40,6 +40,14 @@ describe('parseBackup', () => {
     expect(backup.settings.hour12).toBe(true)
   })
 
+  it('keeps a valid snooze length and replaces a nonsense one', () => {
+    const read = (snoozeMinutes: unknown) =>
+      parseBackup(JSON.stringify({ app: 'chronly', version: 1, settings: { snoozeMinutes } })).settings.snoozeMinutes
+    expect(read(15)).toBe(15)
+    expect(read(0)).toBe(DEFAULT_SETTINGS.snoozeMinutes)
+    expect(read('ten')).toBe(DEFAULT_SETTINGS.snoozeMinutes)
+  })
+
   it('drops world clocks in zones this browser does not know and malformed alarms', () => {
     const backup = parseBackup(
       JSON.stringify({

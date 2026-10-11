@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { ALERT_ACTION_LABELS, BANNER_ACTIONS, type AlertAction } from '../lib/core/notifications'
+  import { alertActionLabel, BANNER_ACTIONS, type AlertAction } from '../lib/core/notifications'
   import type { ActiveAlert } from '../lib/core/types'
   import { activeAlerts, sendAlertAction } from '../lib/ui/alerts'
   import { createNowStore } from '../lib/ui/now'
+  import { settings } from '../lib/ui/settings'
   import Icon from './Icon.svelte'
 
   /**
@@ -55,10 +56,10 @@
               class="btn btn-sm"
               class:btn-primary={action === 'dismiss'}
               disabled={busy !== null}
-              aria-label={`${ALERT_ACTION_LABELS[action]} ${alert.title}`}
+              aria-label={`${alertActionLabel(action, $settings.snoozeMinutes)} ${alert.title}`}
               onclick={() => void act(alert, action)}
             >
-              {ALERT_ACTION_LABELS[action]}
+              {alertActionLabel(action, $settings.snoozeMinutes)}
             </button>
           {/each}
         </div>

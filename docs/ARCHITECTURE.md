@@ -58,7 +58,9 @@ flowchart LR
    through the extension origin (`withLock` in `lib/core/storage.ts`).
 5. **Sound and notification are independent.** The background starts the sound
    without awaiting it and shows the notification separately, so one failing
-   channel never silences the other.
+   channel never silences the other. With gentle wake on, an alarm's sound
+   starts at 5% volume and rises to its set level over 30 seconds (`fadeIn` in
+   `lib/core/audio.ts`); it never starts silent.
 
 ## What happens when an alarm rings
 
@@ -111,7 +113,7 @@ only the background can stop.
 | `pomodoroStats` | local   | background        | All-time totals and the last month of daily focus counts   |
 | `customSounds`  | local   | popup             | Imported audio as data URLs                                |
 | `activeAlerts`  | session | background        | What is ringing right now; cleared when the browser closes |
-| `settings`      | sync    | popup             | Appearance and clock preferences                           |
+| `settings`      | sync    | popup, background | Appearance, clock, snooze length, and gentle wake          |
 | `worldClocks`   | sync    | popup             | Saved zones, labels, colours, order                        |
 
 The popup also remembers its last tab in `localStorage`; that is a per-device

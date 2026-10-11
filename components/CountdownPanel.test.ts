@@ -171,4 +171,15 @@ describe('CountdownPanel', () => {
     )
     expect(stored?.durationMs).toBe(3_723_000)
   })
+
+  it('says when a running timer will end', async () => {
+    const timer = createCountdown('Bread', 30 * 60_000, Date.now())
+    await store().upsert(timer)
+
+    render(CountdownPanel)
+
+    const end = new Date(timer.targetTimestamp)
+    const hhmm = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+    expect(await screen.findByText(`Ends ${hhmm}`)).toBeInTheDocument()
+  })
 })

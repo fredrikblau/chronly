@@ -82,6 +82,10 @@ export interface Settings {
   clockContrast: number
   reducedMotion: boolean
   background: BackgroundConfig
+  /** How long Snooze puts off a ringing alarm, from the notification or the popup. */
+  snoozeMinutes: number
+  /** Alarms start quietly and rise to their set volume over 30 seconds. */
+  gentleWake: boolean
 }
 
 /**
@@ -116,6 +120,8 @@ export const DEFAULT_SETTINGS: Settings = {
   clockContrast: 1,
   reducedMotion: false,
   background: { type: 'solid', value: '#0b0b0f', accentColor: '#8b7cf6' },
+  snoozeMinutes: 5,
+  gentleWake: false,
 }
 
 export interface FocusDay {

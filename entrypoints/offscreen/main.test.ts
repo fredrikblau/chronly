@@ -121,10 +121,10 @@ describe('offscreen audio messages', () => {
       () => undefined,
     )
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(status()).toEqual({ active: ['alarm-1'], audible: ['alarm-1'] })
+    expect(status()).toEqual({ active: ['alarm-1'], audible: ['alarm-1'], levels: { 'alarm-1': 1 } })
 
     handleMessage({ target: 'offscreen', type: 'stop-sound', playbackId: 'alarm-1' }, {}, () => undefined)
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(status()).toEqual({ active: [], audible: [] })
+    expect(status()).toEqual({ active: [], audible: [], levels: {} })
   })
 })

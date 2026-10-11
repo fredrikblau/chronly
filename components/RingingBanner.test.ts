@@ -1,7 +1,7 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ActiveAlertStore, createExtensionStorageBackend } from '../lib/core/storage'
+import { ActiveAlertStore, createExtensionStorageBackend, SettingsStore } from '../lib/core/storage'
 import type { ActiveAlert } from '../lib/core/types'
 import RingingBanner from './RingingBanner.svelte'
 
@@ -74,5 +74,13 @@ describe('RingingBanner', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Dismiss Wake up' }))
 
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Could not reach Chronly'))
+  })
+
+  it('names the snooze length chosen in settings', async () => {
+    await new SettingsStore(createExtensionStorageBackend('sync')).update({ snoozeMinutes: 15 })
+    await ring(ringing())
+    render(RingingBanner)
+
+    expect(await screen.findByRole('button', { name: 'Snooze 15 min Wake up' })).toBeInTheDocument()
   })
 })
