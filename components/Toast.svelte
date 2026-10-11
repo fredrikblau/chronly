@@ -55,7 +55,7 @@
     padding: 0.4rem 0.4rem 0.4rem 0.85rem;
     border: 1px solid var(--hairline);
     border-radius: 0.8rem;
-    background: color-mix(in srgb, var(--bg-solid, #0b0b0f) 88%, var(--fg));
+    background: var(--overlay);
     box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.6);
     color: var(--fg);
     font-size: 0.82rem;
