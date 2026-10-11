@@ -11,7 +11,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # When Release calls this suite, github.workflow is "Release", so a release
+  # run never cancels, or is cancelled by, ordinary CI on the same branch. A
+  # manual release adds its tag (empty for every other run), so releasing two
+  # tags in a row does not cancel the first.
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.tag }}
   cancel-in-progress: true
 
 jobs:

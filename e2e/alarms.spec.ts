@@ -87,7 +87,7 @@ test('deletes an alarm and its scheduled wake-up', async ({ context, extensionId
   await page
     .getByRole('status')
     .filter({ hasText: 'Deleted “Temporary”' })
-    .getByRole('button', { name: 'Undo' })
+    .getByRole('button', { name: 'Undo', exact: true })
     .click()
   await expect(alarms.getByRole('listitem').filter({ hasText: 'Temporary' })).toBeVisible()
   await expect.poll(() => recordAlarmNames(page)).toHaveLength(1)

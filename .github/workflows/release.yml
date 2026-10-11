@@ -1,11 +1,22 @@
 name: Release
 
-# Push a tag such as v0.2.0, or v0.2.0-rc.1 for a prerelease, to publish the
-# Chrome, Firefox, and source zips as a GitHub release. The full CI suite runs
-# first, and nothing is published unless it passes.
+# Publishes the Chrome, Firefox, and source zips as a GitHub release. Three
+# ways in, all of which run the full CI suite first and publish nothing unless
+# it passes:
+#
+# - Push a tag such as v0.2.0, or v0.2.0-rc.1 for a prerelease.
+# - Run this workflow from the Actions tab and type the tag. It is created on
+#   the commit the run uses (main by default) if it does not exist yet.
+# - Publish a release with a new tag on GitHub. The zips are added to it.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release, such as v0.2.0 or v0.2.0-rc.1
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -19,31 +30,94 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      # Typed by a person on a manual run, so it only ever reaches the shell
+      # through this variable and is checked before use.
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # This job's token can write releases. Keep it out of .git/config,
+          # where npm ci's install scripts and the build could read it; gh
+          # gets it only in the two steps below that need it.
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Check the tag matches package.json
+      - name: Check the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]; then
+            echo "::error::$TAG is not a version tag like v0.2.0 or v0.2.0-rc.1"
+            exit 1
+          fi
           version="$(node -p 'require("./package.json").version')"
-          case "${GITHUB_REF_NAME#v}" in
+          case "${TAG#v}" in
             "$version" | "$version"-*) ;;
             *)
-              echo "::error::Tag $GITHUB_REF_NAME does not match version $version in package.json"
+              echo "::error::Tag $TAG does not match version $version in package.json"
               exit 1
               ;;
           esac
+          # A tag that already exists must name the commit CI just checked.
+          # matching-refs lists nothing for a new tag (and matches prefixes,
+          # so v0.1.0-rc.1 would also find rc.10), so any failure here is a
+          # real error and stops the run.
+          matches="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" \
+            --jq "map(select(.ref == \"refs/tags/$TAG\")) | length")"
+          if [[ "$matches" != 0 ]]; then
+            tagged="$(gh api "repos/$GITHUB_REPOSITORY/commits/tags/$TAG" --jq .sha)"
+            if [[ "$tagged" != "$GITHUB_SHA" ]]; then
+              echo "::error::$TAG already points at $tagged, not $GITHUB_SHA"
+              exit 1
+            fi
+            echo "TAG_EXISTS=true" >> "$GITHUB_ENV"
+          fi
       - run: npm run zip
       - run: npm run zip:firefox
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Is there a release for this tag already, perhaps a draft? The
+          # listing includes drafts for this token, and any API error stops
+          # the run rather than being read as "no release" and duplicating it.
+          draft="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+            --jq ".[] | select(.tag_name == \"$TAG\") | .draft")"
+          if [[ -n "$draft" ]]; then
+            # Made on GitHub: keep its notes and settings, add the builds. A
+            # draft's tag is only created when it is published, from its
+            # target, so pin that to the commit these zips came from.
+            if [[ "$draft" == true && "${TAG_EXISTS:-}" != true ]]; then
+              gh release edit "$TAG" --target "$GITHUB_SHA"
+            fi
+            gh release upload "$TAG" .output/*.zip --clobber
+            if [[ "$draft" == true ]]; then
+              echo "::warning::$TAG is still a draft, now with the zips. Publish it on GitHub to release it."
+            fi
+            exit 0
+          fi
+          # Name a commit only for a new tag. For an existing one GitHub
+          # ignores it, and sending it anyway brings in a workflow-file check
+          # the job's token fails once main's workflows have moved on.
+          if [[ "${TAG_EXISTS:-}" == true ]]; then
+            where=(--verify-tag)
+          else
+            where=(--target "$GITHUB_SHA")
+          fi
           prerelease=()
-          if [[ "$GITHUB_REF_NAME" == *-* ]]; then prerelease=(--prerelease); fi
-          gh release create "$GITHUB_REF_NAME" .output/*.zip \
-            --verify-tag --generate-notes \
-            --title "Chronly ${GITHUB_REF_NAME#v}" "${prerelease[@]}"
+          if [[ "$TAG" == *-* ]]; then
+            # GitHub puts these notes above the generated changelog.
+            prerelease=(--prerelease --notes "A release candidate for testing, built from $GITHUB_SHA. The automated unit, Chromium, and Firefox suites passed; the manual checks in RELEASING.md have not been signed off.")
+          fi
+          # Release candidates keep the "Chronly 0.1.0 RC10" titles of the
+          # earlier ones.
+          title="Chronly ${TAG#v}"
+          if [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-rc\.([0-9]+)$ ]]; then
+            title="Chronly ${BASH_REMATCH[1]} RC${BASH_REMATCH[2]}"
+          fi
+          gh release create "$TAG" .output/*.zip "${where[@]}" \
+            --generate-notes --title "$title" "${prerelease[@]}"
