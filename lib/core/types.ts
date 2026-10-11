@@ -18,6 +18,10 @@ export interface AlarmRecord extends BaseRecord {
   kind: 'alarm'
   targetTimestamp: number
   recurrence: AlarmRecurrence | null // null = one-off
+  // A switched-off alarm stays in the list but never fires, the way a phone's
+  // alarm clock keeps a one-off alarm around after it rings. Optional because
+  // records saved before the switch existed have no value and count as on.
+  enabled?: boolean
   // Reserved for the full-screen takeover on the roadmap. Nothing acts on it
   // yet, so the alarm form deliberately does not offer a control for it — a
   // toggle that silently does nothing is worse than no toggle.
@@ -80,6 +84,21 @@ export interface Settings {
   background: BackgroundConfig
 }
 
+/**
+ * What is ringing right now. The background worker writes one of these when it
+ * fires a record and removes it once the alert is acknowledged, so the popup
+ * can offer Snooze and Dismiss even where the system notification has no
+ * buttons (Firefox) or has already slid out of view.
+ */
+export interface ActiveAlert {
+  recordId: string
+  kind: SchedulableRecord['kind']
+  notificationId: string
+  title: string
+  message: string
+  firedAt: number
+}
+
 export interface CustomSound {
   id: string
   name: string
@@ -99,9 +118,17 @@ export const DEFAULT_SETTINGS: Settings = {
   background: { type: 'solid', value: '#0b0b0f', accentColor: '#8b7cf6' },
 }
 
+export interface FocusDay {
+  sessions: number
+  focusMs: number
+}
+
 export interface PomodoroStats {
   totalFocusSessionsCompleted: number
   totalFocusMs: number
+  /** Keyed by local calendar day ("2026-02-02"). Absent on stats saved before
+   *  per-day history existed. */
+  daily?: Record<string, FocusDay>
 }
 
 export const DEFAULT_POMODORO_STATS: PomodoroStats = {

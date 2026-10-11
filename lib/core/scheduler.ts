@@ -1,4 +1,11 @@
-import type { AlarmRecord, AlarmRecurrence, CountdownRecord, PomodoroConfig, PomodoroRecord, SchedulableRecord } from './types'
+import type {
+  AlarmRecord,
+  AlarmRecurrence,
+  CountdownRecord,
+  PomodoroConfig,
+  PomodoroRecord,
+  SchedulableRecord,
+} from './types'
 
 let idCounter = 0
 
@@ -20,14 +27,102 @@ export function effectiveDueTime(record: SchedulableRecord): number {
   return record.targetTimestamp
 }
 
+export function isRecurring(alarm: AlarmRecord): boolean {
+  return (alarm.recurrence?.days.length ?? 0) > 0
+}
+
+/**
+ * Whether an alarm will ring again on its own. A one-off alarm that has rung is
+ * spent even on records saved before the on/off switch existed, which never
+ * had `enabled` written.
+ */
+export function isAlarmArmed(alarm: AlarmRecord): boolean {
+  return alarm.enabled !== false && !(alarm.notified && !isRecurring(alarm))
+}
+
 export function isDue(record: SchedulableRecord, now: number): boolean {
   if (record.notified) return false
+  if (record.kind === 'alarm' && record.enabled === false) return false
   if ((record.kind === 'countdown' || record.kind === 'pomodoro') && record.status !== 'running') return false
   return effectiveDueTime(record) <= now
 }
 
 export function snoozeAlarm(record: AlarmRecord, now: number, snoozeMs: number = SNOOZE_MS): AlarmRecord {
-  return { ...record, snoozedUntil: now + snoozeMs, notified: false, updatedAt: now }
+  // A one-off alarm switches itself off when it rings; snoozing it is a request
+  // to ring again, so it has to be switched back on.
+  return { ...record, enabled: true, snoozedUntil: now + snoozeMs, notified: false, updatedAt: now }
+}
+
+/**
+ * Alarms fire by device-local wall-clock time (not a saved timezone) — the same
+ * assumption a phone's alarm clock makes, and what "set an alarm for 7am" means
+ * to a user.
+ *
+ * `days` (0 = Sunday) is the repeat schedule. Without it the answer is simply
+ * today or tomorrow; with it the first ring has to land on a selected day,
+ * otherwise a Mon/Wed alarm created on a Friday morning would ring that same
+ * Friday before the recurrence logic ever gets a say.
+ */
+export function nextOccurrence(hour: number, minute: number, now: number, days?: number[]): number {
+  const candidate = new Date(now)
+  candidate.setHours(hour, minute, 0, 0)
+  if (candidate.getTime() <= now) candidate.setDate(candidate.getDate() + 1)
+  if (!days || days.length === 0) return candidate.getTime()
+  for (let i = 0; i < 7; i++) {
+    if (days.includes(candidate.getDay())) break
+    candidate.setDate(candidate.getDate() + 1)
+    // Re-apply the wall-clock time: a DST boundary crossed by the day step
+    // would otherwise shift the alarm by an hour.
+    candidate.setHours(hour, minute, 0, 0)
+  }
+  return candidate.getTime()
+}
+
+/**
+ * Switch an alarm back on. Its stored target may be long past — a one-off that
+ * already rang, or a recurring alarm that was off over several of its days — so
+ * the next ring is re-derived from its time of day rather than trusted.
+ */
+export function enableAlarm(record: AlarmRecord, now: number): AlarmRecord {
+  const time = new Date(record.targetTimestamp)
+  return {
+    ...record,
+    enabled: true,
+    notified: false,
+    snoozedUntil: null,
+    targetTimestamp: nextOccurrence(time.getHours(), time.getMinutes(), now, record.recurrence?.days),
+    updatedAt: now,
+  }
+}
+
+export function disableAlarm(record: AlarmRecord, now: number): AlarmRecord {
+  return { ...record, enabled: false, snoozedUntil: null, updatedAt: now }
+}
+
+export interface AlarmEdit {
+  label: string
+  hour: number
+  minute: number
+  days: number[]
+  soundId: string
+  volume: number
+}
+
+/** Apply the alarm form to an existing alarm, keeping its identity. */
+export function editAlarm(record: AlarmRecord, edit: AlarmEdit, now: number): AlarmRecord {
+  const days = [...edit.days].sort((a, b) => a - b)
+  return {
+    ...record,
+    label: edit.label,
+    soundId: edit.soundId,
+    volume: edit.volume,
+    recurrence: days.length ? { days } : null,
+    targetTimestamp: nextOccurrence(edit.hour, edit.minute, now, days),
+    enabled: true,
+    notified: false,
+    snoozedUntil: null,
+    updatedAt: now,
+  }
 }
 
 export function computeDueRecords(records: SchedulableRecord[], now: number): SchedulableRecord[] {
@@ -58,9 +153,17 @@ export function computeNextAlarmOccurrence(record: AlarmRecord, after: number): 
 export function advancePomodoroPhase(record: PomodoroRecord, now: number): PomodoroRecord {
   const nextCycleCount = record.phase === 'focus' ? record.cycleCount + 1 : record.cycleCount
   const nextPhase: PomodoroRecord['phase'] =
-    record.phase === 'focus' ? (nextCycleCount % record.config.cyclesBeforeLongBreak === 0 ? 'longBreak' : 'shortBreak') : 'focus'
+    record.phase === 'focus'
+      ? nextCycleCount % record.config.cyclesBeforeLongBreak === 0
+        ? 'longBreak'
+        : 'shortBreak'
+      : 'focus'
   const duration =
-    nextPhase === 'focus' ? record.config.focusMs : nextPhase === 'shortBreak' ? record.config.shortBreakMs : record.config.longBreakMs
+    nextPhase === 'focus'
+      ? record.config.focusMs
+      : nextPhase === 'shortBreak'
+        ? record.config.shortBreakMs
+        : record.config.longBreakMs
   return {
     ...record,
     phase: nextPhase,
@@ -80,7 +183,11 @@ export function reconcileFiredRecord(record: SchedulableRecord, now: number): Sc
     // from the untouched targetTimestamp.
     const cleared: AlarmRecord = { ...notified, snoozedUntil: null }
     const next = computeNextAlarmOccurrence(cleared, now)
-    if (next === null) return cleared // one-off: stays in storage, notified=true, until dismissed or snoozed
+    // A one-off alarm stays listed once it has rung, like a phone's, and reads
+    // as off (see isAlarmArmed) so it can be switched back on for the same time.
+    // `enabled` is deliberately left alone: the background treats a change to
+    // it as the user switching the alarm off, which silences the ring.
+    if (next === null) return cleared
     return { ...cleared, targetTimestamp: next, notified: false, updatedAt: now }
   }
   if (notified.kind === 'countdown') {
@@ -126,6 +233,7 @@ export function createAlarm(
     recurrence,
     fullScreenTakeover: opts.fullScreenTakeover ?? false,
     snoozedUntil: null,
+    enabled: true,
     soundId: opts.soundId ?? 'default',
     volume: opts.volume ?? 0.8,
     notified: false,
@@ -158,6 +266,48 @@ export function createPomodoro(
   }
 }
 
+/**
+ * Add time to a countdown without restarting it. A finished timer starts again
+ * from the extra time, which is what "+1 min" on a timer that just rang means.
+ */
+export function extendCountdown(record: CountdownRecord, extraMs: number, now: number): CountdownRecord {
+  if (record.status === 'paused') {
+    return {
+      ...record,
+      durationMs: record.durationMs + extraMs,
+      remainingMsAtPause: (record.remainingMsAtPause ?? 0) + extraMs,
+      updatedAt: now,
+    }
+  }
+  if (record.status === 'completed') {
+    return {
+      ...record,
+      durationMs: extraMs,
+      targetTimestamp: now + extraMs,
+      status: 'running',
+      notified: false,
+      remainingMsAtPause: null,
+      updatedAt: now,
+    }
+  }
+  const remaining = Math.max(0, record.targetTimestamp - now)
+  return {
+    ...record,
+    durationMs: Math.max(record.durationMs, remaining) + extraMs,
+    targetTimestamp: Math.max(record.targetTimestamp, now) + extraMs,
+    updatedAt: now,
+  }
+}
+
+/**
+ * End the current Pomodoro phase early and move on, without the alert. A
+ * skipped focus phase is not a completed one, so it is not counted in stats.
+ */
+export function skipPomodoroPhase(record: PomodoroRecord, now: number): PomodoroRecord {
+  const advanced = advancePomodoroPhase(record, now)
+  return record.status === 'paused' ? pauseRecord(advanced, now) : advanced
+}
+
 export function pauseRecord<T extends CountdownRecord | PomodoroRecord>(record: T, now: number): T {
   if (record.status !== 'running') return record
   return { ...record, status: 'paused', remainingMsAtPause: record.targetTimestamp - now, updatedAt: now }
@@ -165,5 +315,11 @@ export function pauseRecord<T extends CountdownRecord | PomodoroRecord>(record: 
 
 export function resumeRecord<T extends CountdownRecord | PomodoroRecord>(record: T, now: number): T {
   if (record.status !== 'paused' || record.remainingMsAtPause === null) return record
-  return { ...record, status: 'running', targetTimestamp: now + record.remainingMsAtPause, remainingMsAtPause: null, updatedAt: now }
+  return {
+    ...record,
+    status: 'running',
+    targetTimestamp: now + record.remainingMsAtPause,
+    remainingMsAtPause: null,
+    updatedAt: now,
+  }
 }

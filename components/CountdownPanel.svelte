@@ -1,16 +1,20 @@
 <script lang="ts">
   import { SOUND_PRESETS } from '../lib/core/audio'
-  import { createCountdown, pauseRecord, resumeRecord } from '../lib/core/scheduler'
+  import { createCountdown, extendCountdown, pauseRecord, resumeRecord } from '../lib/core/scheduler'
   import type { CountdownRecord } from '../lib/core/types'
+  import { formatCountdown, spokenCountdown } from '../lib/ui/format'
   import { createNowStore } from '../lib/ui/now'
   import { recordActions, records } from '../lib/ui/records'
+  import Icon from './Icon.svelte'
   import SoundPicker from './SoundPicker.svelte'
 
   const now = createNowStore()
 
-  const QUICK_PRESET_MINUTES = [1, 3, 5, 10, 25]
+  const QUICK_PRESET_MINUTES = [1, 3, 5, 10, 15, 25]
+  const EXTEND_MS = 60_000
 
   let label = $state('')
+  let hours = $state(0)
   let minutes = $state(5)
   let seconds = $state(0)
   let soundId = $state(SOUND_PRESETS[0].id)
@@ -28,11 +32,10 @@
       .sort((a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || a.targetTimestamp - b.targetTimestamp),
   )
 
-  const durationMs = $derived((Number(minutes) * 60 + Number(seconds)) * 1000)
+  /** A cleared number input binds through as null or NaN; read that as zero. */
+  const whole = (value: number) => (Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0)
 
-  function pad(value: number): string {
-    return String(value).padStart(2, '0')
-  }
+  const durationMs = $derived((whole(hours) * 3600 + whole(minutes) * 60 + whole(seconds)) * 1000)
 
   /**
    * Remaining time is always re-derived from the stored absolute target (or the
@@ -46,14 +49,6 @@
     return Math.max(0, record.targetTimestamp - at)
   }
 
-  function formatRemaining(ms: number): string {
-    const totalSeconds = Math.ceil(ms / 1000)
-    const hours = Math.floor(totalSeconds / 3600)
-    const mins = Math.floor((totalSeconds % 3600) / 60)
-    const secs = totalSeconds % 60
-    return hours > 0 ? `${hours}:${pad(mins)}:${pad(secs)}` : `${mins}:${pad(secs)}`
-  }
-
   function progressPercent(record: CountdownRecord, at: number): number {
     if (record.durationMs <= 0) return 100
     const elapsed = record.durationMs - remainingMs(record, at)
@@ -61,9 +56,14 @@
   }
 
   function applyPreset(presetMinutes: number) {
-    minutes = presetMinutes
+    hours = Math.floor(presetMinutes / 60)
+    minutes = presetMinutes % 60
     seconds = 0
   }
+
+  const activePreset = $derived(
+    whole(seconds) === 0 ? QUICK_PRESET_MINUTES.find((m) => m === whole(hours) * 60 + whole(minutes)) : undefined,
+  )
 
   async function save(action: () => Promise<void>, failure: string): Promise<boolean> {
     if (saving) return false
@@ -100,8 +100,16 @@
         volume: record.volume,
       }),
       id: record.id,
+      createdAt: record.createdAt,
     }
     await save(() => recordActions.upsert(restarted), 'Could not restart that timer. Try again.')
+  }
+
+  async function extend(record: CountdownRecord) {
+    await save(
+      () => recordActions.upsert(extendCountdown(record, EXTEND_MS, Date.now())),
+      'Could not add time to that timer. Try again.',
+    )
   }
 
   async function togglePause(record: CountdownRecord) {
@@ -115,71 +123,103 @@
 </script>
 
 <section class="panel" aria-labelledby="countdown-heading">
-  <h2 id="countdown-heading">Timers</h2>
+  <header class="panel-head">
+    <h2 id="countdown-heading">Timers</h2>
+    {#if countdowns.length}
+      <span class="panel-meta">{countdowns.filter((c) => c.status === 'running').length} running</span>
+    {/if}
+  </header>
 
   {#if countdowns.length === 0}
-    <p class="empty">No timers running. Set one below.</p>
+    <div class="empty-state">
+      <Icon name="timer" size={22} />
+      <strong>No timers running</strong>
+      <span>Set one below. Run as many as you like at once.</span>
+    </div>
   {:else}
     <ul class="timers">
       {#each countdowns as countdown (countdown.id)}
         {@const remaining = remainingMs(countdown, $now)}
-        <li class="timer" class:is-done={countdown.status === 'completed'}>
-          <div class="timer-head">
-            <span class="timer-label">{countdown.label}</span>
-            {#if countdown.status === 'paused'}
-              <span class="chip">Paused</span>
-            {/if}
+        <li
+          class="timer card"
+          class:is-done={countdown.status === 'completed'}
+          class:is-paused={countdown.status === 'paused'}
+        >
+          <div class="timer-main">
+            <div class="timer-head">
+              <span class="timer-label" title={countdown.label}>{countdown.label}</span>
+              {#if countdown.status === 'paused'}
+                <span class="chip">Paused</span>
+              {/if}
+            </div>
+            <span
+              class="timer-remaining"
+              class:is-urgent={countdown.status === 'running' && remaining <= 10_000}
+              role="timer"
+              aria-live="off"
+              aria-label={countdown.status === 'completed'
+                ? `${countdown.label} done`
+                : `${countdown.label}, ${spokenCountdown(remaining)}`}
+            >
+              {countdown.status === 'completed' ? 'Done' : formatCountdown(remaining)}
+            </span>
           </div>
 
-          <span class="timer-remaining" class:is-urgent={countdown.status === 'running' && remaining <= 10_000}>
-            {countdown.status === 'completed' ? 'Done' : formatRemaining(remaining)}
-          </span>
+          <div class="progress" aria-hidden="true">
+            <div class="progress-fill" style:width={`${progressPercent(countdown, $now)}%`}></div>
+          </div>
 
           <div class="timer-actions">
             {#if countdown.status === 'running'}
               <button
                 type="button"
-                class="ghost"
+                class="btn btn-sm"
                 aria-label={`Pause ${countdown.label}`}
                 disabled={saving}
                 onclick={() => void togglePause(countdown)}
               >
-                Pause
+                <Icon name="pause" size={13} /> Pause
               </button>
             {:else if countdown.status === 'paused'}
               <button
                 type="button"
-                class="ghost"
+                class="btn btn-sm btn-outline"
                 aria-label={`Resume ${countdown.label}`}
                 disabled={saving}
                 onclick={() => void togglePause(countdown)}
               >
-                Resume
+                <Icon name="play" size={11} /> Resume
               </button>
             {:else}
               <button
                 type="button"
-                class="ghost"
+                class="btn btn-sm btn-outline"
                 aria-label={`Restart ${countdown.label}`}
                 disabled={saving}
                 onclick={() => void restart(countdown)}
               >
-                Restart
+                <Icon name="restart" size={13} /> Restart
               </button>
             {/if}
             <button
               type="button"
-              class="ghost danger"
+              class="btn btn-sm"
+              aria-label={`Add 1 minute to ${countdown.label}`}
+              disabled={saving}
+              onclick={() => void extend(countdown)}
+            >
+              +1 min
+            </button>
+            <button
+              type="button"
+              class="icon-btn danger"
+              title="Delete"
               aria-label={`Delete ${countdown.label}`}
               disabled={saving}
               onclick={() => void remove(countdown)}
             >
-              Delete
+              <Icon name="trash" size={15} />
             </button>
-          </div>
-
-          <div class="progress" aria-hidden="true">
-            <div class="progress-fill" style:width={`${progressPercent(countdown, $now)}%`}></div>
           </div>
         </li>
       {/each}
@@ -187,25 +227,28 @@
   {/if}
 
   <form
-    class="new-timer"
+    class="new-timer card"
+    aria-labelledby="timer-form-title"
     onsubmit={(event) => {
       event.preventDefault()
-      start()
+      void start()
     }}
   >
-    <input
-      class="label-input"
-      type="text"
-      placeholder="Label"
-      aria-label="Timer label"
-      disabled={saving}
-      bind:value={label}
-    />
+    <h3 id="timer-form-title" class="section-title">New timer</h3>
 
-    <div class="duration">
-      <input type="number" min="0" max="999" aria-label="Minutes" bind:value={minutes} />
-      <span class="colon" aria-hidden="true">:</span>
-      <input type="number" min="0" max="59" aria-label="Seconds" bind:value={seconds} />
+    <div class="duration" role="group" aria-label="Duration">
+      <label class="unit">
+        <input class="input" type="number" min="0" max="23" aria-label="Hours" bind:value={hours} />
+        <span>hr</span>
+      </label>
+      <label class="unit">
+        <input class="input" type="number" min="0" max="999" aria-label="Minutes" bind:value={minutes} />
+        <span>min</span>
+      </label>
+      <label class="unit">
+        <input class="input" type="number" min="0" max="59" aria-label="Seconds" bind:value={seconds} />
+        <span>sec</span>
+      </label>
     </div>
 
     <div class="presets" role="group" aria-label="Quick durations">
@@ -213,7 +256,8 @@
         <button
           type="button"
           class="preset"
-          class:is-active={minutes === presetMinutes && seconds === 0}
+          class:is-active={activePreset === presetMinutes}
+          aria-pressed={activePreset === presetMinutes}
           aria-label={`${presetMinutes} minutes`}
           onclick={() => applyPreset(presetMinutes)}
         >
@@ -222,21 +266,31 @@
       {/each}
     </div>
 
-    <SoundPicker bind:soundId bind:volume />
+    <input
+      class="input label-input"
+      type="text"
+      placeholder="Label"
+      aria-label="Timer label"
+      maxlength="80"
+      disabled={saving}
+      bind:value={label}
+    />
 
-    <button type="submit" class="primary" disabled={durationMs <= 0 || saving}>{saving ? 'Saving…' : 'Start'}</button>
+    <div class="field">
+      <span class="field-label">Sound</span>
+      <SoundPicker bind:soundId bind:volume />
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block" disabled={durationMs <= 0 || saving}>
+      {saving ? 'Saving…' : 'Start'}
+    </button>
   </form>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
 </section>
 
 <style>
   .panel {
-    /* The popup root owns these; the fallbacks only matter when a panel is
-       mounted on its own, as the tests do. */
-    --surface: var(--tint, rgba(255, 255, 255, 0.04));
-    --line: var(--hairline, rgba(255, 255, 255, 0.1));
-    --muted: var(--fg-muted, rgba(245, 245, 247, 0.55));
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -244,54 +298,34 @@
     color: var(--fg, #f5f5f7);
   }
 
-  h2 {
-    margin: 0;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .empty {
-    margin: 0;
-    padding: 0.9rem 0.75rem;
-    border: 1px dashed var(--line);
-    border-radius: 0.75rem;
-    font-size: 0.8125rem;
-    color: var(--muted);
-    text-align: center;
-  }
-
   .timers {
-    list-style: none;
-    margin: 0;
-    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   .timer {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas: 'head remaining' 'actions remaining';
-    align-items: center;
-    gap: 0.15rem 0.5rem;
-    padding: 0.6rem 0.75rem 0.7rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 0.75rem;
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.7rem 0.75rem 0.6rem;
   }
 
   .timer.is-done {
-    border-color: color-mix(in srgb, var(--accent, #8b7cf6) 50%, transparent);
+    border-color: color-mix(in srgb, var(--success, #6ee7b7) 55%, transparent);
+  }
+
+  .timer-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
   }
 
   .timer-head {
-    grid-area: head;
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -299,194 +333,152 @@
   }
 
   .timer-label {
-    font-size: 0.9375rem;
-    font-weight: 500;
     overflow: hidden;
+    font-size: 0.9rem;
+    font-weight: 550;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .chip {
-    flex: none;
-    padding: 0.05rem 0.4rem;
-    border-radius: 999px;
-    background: var(--tint-strong, rgba(255, 255, 255, 0.08));
-    font-size: 0.625rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
   .timer-remaining {
-    grid-area: remaining;
-    font-size: 1.375rem;
+    font-size: 2rem;
     font-weight: 300;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .is-paused .timer-remaining {
+    color: var(--fg-muted);
+  }
+
+  .is-done .timer-remaining {
+    color: var(--success, #6ee7b7);
+    font-size: 1.5rem;
+    font-weight: 500;
   }
 
   .timer-remaining.is-urgent {
-    color: var(--accent-ink, #8b7cf6);
-  }
-
-  .timer-actions {
-    grid-area: actions;
-    display: flex;
-    gap: 0.35rem;
+    color: var(--warn, #f0c674);
   }
 
   .progress {
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 2px;
-    background: var(--tint-strong, rgba(255, 255, 255, 0.08));
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--tint-strong);
   }
 
   .progress-fill {
     height: 100%;
+    border-radius: inherit;
     background: var(--accent, #8b7cf6);
-    transition: width 0.25s linear;
+    transition: width 250ms linear;
+  }
+
+  .is-done .progress-fill {
+    background: var(--success, #6ee7b7);
+  }
+
+  .is-paused .progress-fill {
+    background: var(--fg-faint);
+  }
+
+  .timer-actions {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .timer-actions .icon-btn {
+    margin-left: auto;
+    width: 1.8rem;
+    height: 1.8rem;
   }
 
   .new-timer {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 0.75rem;
-  }
-
-  /* Grid items default to min-width:auto, so the text input's intrinsic width
-     keeps the 1fr column from shrinking and the whole form overflows the card
-     at popup width. */
-  .new-timer > * {
-    min-width: 0;
-  }
-
-  .label-input {
-    width: 100%;
-  }
-
-  .presets {
-    grid-column: 1 / -1;
-  }
-
-  .presets {
-    grid-column: 1 / -1;
     display: flex;
-    gap: 0.35rem;
-  }
-
-  input {
-    padding: 0.4rem 0.5rem;
-    background: var(--field, rgba(255, 255, 255, 0.06));
-    border: 1px solid var(--line);
-    border-radius: 0.5rem;
-    color: inherit;
-    font: inherit;
-    font-size: 0.8125rem;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.85rem;
   }
 
   .duration {
-    display: flex;
-    align-items: center;
-    gap: 0.2rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
   }
 
-  .duration input {
-    width: 3.25rem;
-    text-align: center;
+  .unit {
+    position: relative;
+    display: block;
+  }
+
+  .unit input {
+    width: 100%;
+    padding-right: 2.2rem;
+    font-size: 1.25rem;
     font-variant-numeric: tabular-nums;
+    text-align: center;
   }
 
-  .colon {
-    color: var(--muted);
+  .unit span {
+    position: absolute;
+    top: 50%;
+    right: 0.6rem;
+    color: var(--fg-faint);
+    font-size: 0.7rem;
+    pointer-events: none;
+    transform: translateY(-50%);
   }
 
-  button {
-    padding: 0.4rem 0.7rem;
-    border-radius: 0.5rem;
-    border: 1px solid transparent;
-    font: inherit;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .primary {
-    grid-column: 1 / -1;
-    background: var(--accent, #8b7cf6);
-    color: var(--on-accent, #0b0b0f);
-    font-weight: 600;
-  }
-
-  .primary:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--accent, #8b7cf6) 85%, #ffffff);
-  }
-
-  .primary:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .error {
-    margin: 0;
-    color: var(--danger, #fca5a5);
-    font-size: 0.72rem;
-  }
-
-  .ghost {
-    background: var(--tint, rgba(255, 255, 255, 0.06));
-    border-color: var(--line);
-    color: var(--muted);
-  }
-
-  .ghost:hover {
-    background: var(--tint-strong, rgba(255, 255, 255, 0.12));
-    color: var(--fg, #f5f5f7);
-  }
-
-  .ghost.danger:hover {
-    background: var(--danger-tint, rgba(248, 113, 113, 0.16));
-    border-color: color-mix(in srgb, var(--danger, #fca5a5) 45%, transparent);
-    color: var(--danger, #fca5a5);
+  .presets {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.3rem;
   }
 
   .preset {
+    min-height: 1.9rem;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
     background: transparent;
-    border-color: var(--line);
-    color: var(--muted);
+    color: var(--fg-muted);
+    font: inherit;
+    font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition:
+      background 120ms ease,
+      color 120ms ease,
+      border-color 120ms ease;
   }
 
   .preset:hover {
-    color: var(--fg, #f5f5f7);
+    border-color: var(--accent, #8b7cf6);
+    color: var(--fg);
   }
 
   .preset.is-active {
     border-color: var(--accent, #8b7cf6);
-    color: var(--accent-ink, #8b7cf6);
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-weight: 650;
   }
 
-  :is(button, input):focus-visible {
-    outline: 2px solid var(--accent, #8b7cf6);
-    outline-offset: 2px;
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .progress-fill,
-    button {
-      transition: none;
-    }
+  /* The unit label sits where the spinner would; arrow keys still step. */
+  .unit input {
+    appearance: textfield;
+  }
+
+  .unit input::-webkit-inner-spin-button,
+  .unit input::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
   }
 </style>

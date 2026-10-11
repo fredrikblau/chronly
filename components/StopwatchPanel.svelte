@@ -10,7 +10,16 @@
   } from '../lib/core/stopwatch'
   import { createExtensionStorageBackend, StopwatchStore, watchStorageKey } from '../lib/core/storage'
   import { DEFAULT_STOPWATCH, type StopwatchState } from '../lib/core/types'
+  import { formatStopwatch } from '../lib/ui/format'
   import { failStorageLoad, finishStorageLoad } from '../lib/ui/storageLoad'
+  import Icon from './Icon.svelte'
+
+  interface Props {
+    /** Whether the panel is on screen; keyboard shortcuts only apply then. */
+    active?: boolean
+  }
+
+  const { active = false }: Props = $props()
 
   const store = new StopwatchStore(createExtensionStorageBackend('local'))
   let state = $state<StopwatchState>(DEFAULT_STOPWATCH)
@@ -36,7 +45,9 @@
         ? Math.max(0, value.elapsedMsBeforeStart)
         : 0
     const laps = Array.isArray(value?.laps)
-      ? value.laps.filter((lap): lap is number => typeof lap === 'number' && Number.isFinite(lap)).map((lap) => Math.max(0, lap))
+      ? value.laps
+          .filter((lap): lap is number => typeof lap === 'number' && Number.isFinite(lap))
+          .map((lap) => Math.max(0, lap))
       : []
     return { status, startedAt, elapsedMsBeforeStart, laps }
   }
@@ -95,21 +106,7 @@
   const fastestLapMs = $derived(state.laps.length > 1 ? Math.min(...state.laps) : null)
   const slowestLapMs = $derived(state.laps.length > 1 ? Math.max(...state.laps) : null)
 
-  function pad(value: number, width = 2): string {
-    return String(value).padStart(width, '0')
-  }
-
-  function formatMs(ms: number): string {
-    const totalCentis = Math.floor(ms / 10)
-    const centis = totalCentis % 100
-    const totalSeconds = Math.floor(totalCentis / 100)
-    const seconds = totalSeconds % 60
-    const totalMinutes = Math.floor(totalSeconds / 60)
-    const minutes = totalMinutes % 60
-    const hours = Math.floor(totalMinutes / 60)
-    const head = hours > 0 ? `${hours}:${pad(minutes)}` : pad(minutes)
-    return `${head}:${pad(seconds)}.${pad(centis)}`
-  }
+  const formatMs = formatStopwatch
 
   async function commit(next: StopwatchState) {
     stateRevision += 1
@@ -138,12 +135,40 @@
   function reset() {
     void commit(resetStopwatch())
   }
+
+  /** Space starts and pauses, L laps — only while this panel is showing and
+   *  nothing that takes typing has focus. */
+  function onKeydown(event: KeyboardEvent) {
+    if (!active || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return
+    const target = event.target
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement
+    )
+      return
+    // A button would take Space for itself, except the tab that is already
+    // selected, where Space has nothing left to do.
+    const ownsSpace = target instanceof HTMLButtonElement && target.getAttribute('role') !== 'tab'
+    if (event.key === ' ' && !ownsSpace) {
+      event.preventDefault()
+      toggle()
+    } else if (event.key.toLowerCase() === 'l' && isRunning) {
+      event.preventDefault()
+      lap()
+    }
+  }
 </script>
 
-<section class="panel" aria-labelledby="stopwatch-heading">
-  <h2 id="stopwatch-heading">Stopwatch</h2>
+<svelte:window onkeydown={onKeydown} />
 
-  <div class="readout">
+<section class="panel" aria-labelledby="stopwatch-heading">
+  <header class="panel-head">
+    <h2 id="stopwatch-heading">Stopwatch</h2>
+    {#if state.laps.length}<span class="panel-meta">{state.laps.length} laps</span>{/if}
+  </header>
+
+  <div class="readout card">
     <div class="display" class:is-idle={!isRunning} role="timer" aria-live="off">
       {formatMs(elapsedMs)}
     </div>
@@ -156,14 +181,22 @@
   </div>
 
   <div class="controls">
-    <button type="button" class="primary" class:is-running={isRunning} onclick={toggle}>
+    <button
+      type="button"
+      class="btn"
+      class:btn-primary={!isRunning}
+      class:btn-outline={isRunning}
+      aria-keyshortcuts="Space"
+      onclick={toggle}
+    >
+      <Icon name={isRunning ? 'pause' : 'play'} size={isRunning ? 15 : 12} />
       {isRunning ? 'Pause' : state.status === 'paused' ? 'Resume' : 'Start'}
     </button>
-    <button type="button" class="ghost" onclick={lap} disabled={!isRunning}>Lap</button>
-    <button type="button" class="ghost" onclick={reset} disabled={isPristine}>Reset</button>
+    <button type="button" class="btn" aria-keyshortcuts="L" onclick={lap} disabled={!isRunning}>Lap</button>
+    <button type="button" class="btn" onclick={reset} disabled={isPristine}>Reset</button>
   </div>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
 
   {#if lapRows.length > 0}
     <ol class="laps" aria-label="Recorded laps">
@@ -195,28 +228,16 @@
     color: var(--fg, #f5f5f7);
   }
 
-  h2 {
-    margin: 0;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
   .readout {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.15rem;
-    padding: 0.9rem 0.75rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 0.75rem;
+    gap: 0.25rem;
+    padding: 1.5rem 0.75rem 1.25rem;
   }
 
   .display {
-    font-size: 2.5rem;
+    font-size: 3.25rem;
     font-weight: 250;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.01em;
@@ -245,66 +266,11 @@
     gap: 0.4rem;
   }
 
-  .error {
-    margin: 0;
-    color: var(--danger, #fca5a5);
-    font-size: 0.75rem;
-  }
-
-  button {
-    padding: 0.5rem 0.6rem;
-    border: 1px solid transparent;
-    border-radius: 0.5rem;
-    font: inherit;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition:
-      background 0.15s ease,
-      border-color 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .primary {
-    background: var(--accent, #8b7cf6);
-    color: var(--on-accent, #0b0b0f);
-    font-weight: 600;
-  }
-
-  .primary:hover {
-    background: color-mix(in srgb, var(--accent, #8b7cf6) 85%, #ffffff);
-  }
-
-  .primary.is-running {
-    background: transparent;
-    border-color: var(--accent, #8b7cf6);
-    color: var(--accent-ink, #8b7cf6);
-  }
-
-  .primary.is-running:hover {
-    background: color-mix(in srgb, var(--accent, #8b7cf6) 14%, transparent);
-  }
-
-  .ghost {
-    background: var(--tint, rgba(255, 255, 255, 0.06));
-    border-color: var(--line);
-    color: var(--muted);
-  }
-
-  .ghost:hover:not(:disabled) {
-    background: var(--tint-strong, rgba(255, 255, 255, 0.12));
-    color: var(--fg, #f5f5f7);
-  }
-
-  .ghost:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
   .laps {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-height: 9rem;
+    max-height: 14rem;
     overflow-y: auto;
     border: 1px solid var(--line);
     border-radius: 0.75rem;
@@ -340,16 +306,5 @@
 
   .laps li.is-slowest .lap-split {
     color: var(--danger, #fca5a5);
-  }
-
-  :is(button):focus-visible {
-    outline: 2px solid var(--accent, #8b7cf6);
-    outline-offset: 2px;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    button {
-      transition: none;
-    }
   }
 </style>

@@ -9,6 +9,12 @@ export const test = base.extend<{ context: BrowserContext; extensionId: string }
   // eslint-disable-next-line no-empty-pattern -- Playwright requires the destructured-args form to detect fixture dependencies.
   context: async ({}, use) => {
     const context = await chromium.launchPersistentContext('', {
+      // Lets contributors reuse a Chromium they already have instead of
+      // downloading Playwright's pinned build.
+      executablePath: process.env.CHROMIUM_PATH || undefined,
+      // Pinned so time-of-day assertions read the same on every machine.
+      timezoneId: 'UTC',
+      locale: 'en-US',
       // MV3 extensions only load into a persistent context, and only when
       // Chromium is told about them at launch.
       args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],

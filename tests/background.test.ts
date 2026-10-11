@@ -2,15 +2,24 @@ import { fakeBrowser } from '@webext-core/fake-browser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { playAlarmSound, stopAlarmSound } from '../lib/core/audio'
 import { createAlarm, createCountdown, createPomodoro } from '../lib/core/scheduler'
-import { createExtensionStorageBackend, PomodoroStatsStore, RecordStore } from '../lib/core/storage'
+import { disableAlarm, isAlarmArmed, pauseRecord, reconcileFiredRecord, resumeRecord } from '../lib/core/scheduler'
+import {
+  ActiveAlertStore,
+  createExtensionStorageBackend,
+  localDayKey,
+  PomodoroStatsStore,
+  RecordStore,
+} from '../lib/core/storage'
 import {
   cleanupRemovedRecords,
   ensureTickAlarm,
   extractRecordId,
+  handleAlertAction,
   handleNotificationButton,
   handleNotificationClosed,
   observeBackgroundTask,
   reconcileDueRecords,
+  syncAlertBadge,
   TICK_ALARM_NAME,
   TICK_PERIOD_MINUTES,
 } from '../entrypoints/background'
@@ -115,6 +124,24 @@ describe('reconcileDueRecords', () => {
     await reconcileDueRecords(store, NOW + 60_000) // a later tick, e.g. after a delayed wake
 
     expect(createSpy).not.toHaveBeenCalled()
+  })
+
+  it('drops the wake-up of a paused timer and restores it on resume', async () => {
+    const store = newStore()
+    const countdown = createCountdown('Tea', 5 * 60_000, NOW)
+    await store.upsert(countdown)
+    await reconcileDueRecords(store, NOW + 1000)
+    expect(await fakeBrowser.alarms.get(`record:${countdown.id}`)).toBeDefined()
+
+    await store.upsert(pauseRecord(countdown, NOW + 2000))
+    await reconcileDueRecords(store, NOW + 2000)
+    expect(await fakeBrowser.alarms.get(`record:${countdown.id}`)).toBeUndefined()
+
+    await store.upsert(resumeRecord(pauseRecord(countdown, NOW + 2000), NOW + 3000))
+    await reconcileDueRecords(store, NOW + 3000)
+    expect(await fakeBrowser.alarms.get(`record:${countdown.id}`)).toMatchObject({
+      scheduledTime: NOW + 5 * 60_000 + 1000,
+    })
   })
 
   it('leaves a not-yet-due countdown untouched', async () => {
@@ -254,7 +281,7 @@ describe('handleNotificationButton', () => {
     expect(updated?.kind === 'pomodoro' && updated.status).toBe('paused')
   })
 
-  it('removes a dismissed one-off alarm entirely', async () => {
+  it('switches a dismissed one-off alarm off and keeps it listed', async () => {
     const store = newStore()
     const alarm = createAlarm('Wake up', NOW, NOW)
     await store.upsert(alarm)
@@ -262,22 +289,24 @@ describe('handleNotificationButton', () => {
 
     await handleNotificationButton(store, `chronly-alarm-${alarm.id}`, 1, NOW + 5000) // Dismiss
 
-    expect(await store.get(alarm.id)).toBeUndefined()
+    // Like a phone's alarm clock: the alarm stays, spent, so it can be switched back on.
+    const kept = await store.get(alarm.id)
+    expect(kept?.kind === 'alarm' && isAlarmArmed(kept)).toBe(false)
     expect(stopAlarmSound).toHaveBeenCalledWith(alarm.id)
   })
 
-  it('stops a dismissed alarm even when record removal fails', async () => {
+  it('stops a dismissed timer even when record removal fails', async () => {
     const store = newStore()
-    const alarm = createAlarm('Wake up', NOW, NOW)
-    await store.upsert(alarm)
-    await reconcileDueRecords(store, NOW + 1)
+    const countdown = createCountdown('Tea', 1000, NOW)
+    await store.upsert(countdown)
+    await reconcileDueRecords(store, NOW + 1000)
     vi.spyOn(fakeBrowser.storage.local, 'set').mockRejectedValueOnce(new Error('storage unavailable'))
 
-    await expect(handleNotificationButton(store, `chronly-alarm-${alarm.id}`, 1, NOW + 5000)).rejects.toThrow(
+    await expect(handleNotificationButton(store, `chronly-countdown-${countdown.id}`, 0, NOW + 5000)).rejects.toThrow(
       'storage unavailable',
     )
 
-    expect(stopAlarmSound).toHaveBeenCalledWith(alarm.id)
+    expect(stopAlarmSound).toHaveBeenCalledWith(countdown.id)
     expect(await fakeBrowser.notifications.getAll()).toEqual({})
   })
 
@@ -336,9 +365,10 @@ describe('reconcileDueRecords pomodoro stats', () => {
     await reconcileDueRecords(store, NOW + 1000)
 
     const statsStore = new PomodoroStatsStore(createExtensionStorageBackend('local'))
-    expect(await statsStore.get()).toEqual({
+    expect(await statsStore.get()).toMatchObject({
       totalFocusSessionsCompleted: 1,
       totalFocusMs: 1000,
+      daily: { [localDayKey(NOW + 1000)]: { sessions: 1, focusMs: 1000 } },
     })
   })
 
@@ -351,5 +381,192 @@ describe('reconcileDueRecords pomodoro stats', () => {
 
     const statsStore = new PomodoroStatsStore(createExtensionStorageBackend('local'))
     expect((await statsStore.get()).totalFocusSessionsCompleted).toBe(1)
+  })
+})
+
+function alerts(): ActiveAlertStore {
+  return new ActiveAlertStore(createExtensionStorageBackend('session'))
+}
+
+describe('ringing alerts', () => {
+  beforeEach(() => {
+    fakeBrowser.reset()
+  })
+
+  it('lists a fired record as ringing until it is acknowledged', async () => {
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+
+    await reconcileDueRecords(store, NOW + 1)
+    await vi.waitFor(async () =>
+      expect(await alerts().getAll()).toEqual([
+        expect.objectContaining({ recordId: alarm.id, kind: 'alarm', title: 'Wake up', firedAt: NOW + 1 }),
+      ]),
+    )
+
+    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`)
+    await vi.waitFor(async () => expect(await alerts().getAll()).toEqual([]))
+  })
+
+  it('lists the alert even when the notification itself fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(fakeBrowser.notifications, 'create').mockRejectedValueOnce(new Error('blocked'))
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+
+    await reconcileDueRecords(store, NOW + 1)
+
+    // The sound is already playing; the popup banner is now the only way to stop it.
+    await vi.waitFor(async () => expect(await alerts().get(alarm.id)).toBeDefined())
+  })
+
+  it('snoozes an alarm from the popup banner and silences it', async () => {
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+    await reconcileDueRecords(store, NOW + 1)
+
+    await handleAlertAction(store, alarm.id, 'snooze', NOW + 2000)
+
+    expect(await store.get(alarm.id)).toMatchObject({
+      enabled: true,
+      notified: false,
+      snoozedUntil: NOW + 2000 + 5 * 60_000,
+    })
+    expect(stopAlarmSound).toHaveBeenCalledWith(alarm.id)
+    expect(await fakeBrowser.notifications.getAll()).toEqual({})
+    await vi.waitFor(async () => expect(await alerts().getAll()).toEqual([]))
+  })
+
+  it('pauses the next Pomodoro phase from the popup banner', async () => {
+    const store = newStore()
+    const pomodoro = createPomodoro(
+      'Deep work',
+      { focusMs: 1000, shortBreakMs: 500, longBreakMs: 2000, cyclesBeforeLongBreak: 4 },
+      NOW,
+    )
+    await store.upsert(pomodoro)
+    await reconcileDueRecords(store, NOW + 1000)
+
+    await handleAlertAction(store, pomodoro.id, 'pause', NOW + 1001)
+
+    expect(await store.get(pomodoro.id)).toMatchObject({ status: 'paused', phase: 'shortBreak' })
+  })
+
+  it('removes a finished timer dismissed from the popup banner', async () => {
+    const store = newStore()
+    const countdown = createCountdown('Tea', 1000, NOW)
+    await store.upsert(countdown)
+    await reconcileDueRecords(store, NOW + 1000)
+
+    await handleAlertAction(store, countdown.id, 'dismiss', NOW + 2000)
+
+    expect(await store.get(countdown.id)).toBeUndefined()
+  })
+
+  it('advances a still-due record when its alert is dismissed', async () => {
+    // The notification failed, so the tick left the record due; dismissing
+    // must acknowledge it or it would ring again on the next tick.
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+
+    await handleAlertAction(store, alarm.id, 'dismiss', NOW + 1000)
+
+    expect(await store.get(alarm.id)).toMatchObject({ notified: true })
+  })
+
+  it('still silences an alert whose record has been deleted', async () => {
+    const store = newStore()
+    await alerts().add({
+      recordId: 'gone',
+      kind: 'alarm',
+      notificationId: 'chronly-alarm-gone',
+      title: 'Gone',
+      message: 'Your alarm is going off.',
+      firedAt: NOW,
+    })
+
+    await handleAlertAction(store, 'gone', 'dismiss', NOW)
+
+    expect(stopAlarmSound).toHaveBeenCalledWith('gone')
+    await vi.waitFor(async () => expect(await alerts().getAll()).toEqual([]))
+  })
+
+  it('silences an alarm that is switched off while it rings', async () => {
+    const alarm = createAlarm('Standup', NOW, NOW, { days: [1, 2, 3, 4, 5] })
+
+    await cleanupRemovedRecords({ [alarm.id]: alarm }, { [alarm.id]: disableAlarm(alarm, NOW) })
+
+    expect(stopAlarmSound).toHaveBeenCalledWith(alarm.id)
+  })
+
+  it('keeps ringing when a one-off alarm fires', async () => {
+    // Regression: firing once wrote `enabled: false`, which this cleanup read as
+    // the user switching the alarm off, silencing every one-off alarm at once.
+    const alarm = createAlarm('Wake up', NOW, NOW)
+
+    await cleanupRemovedRecords({ [alarm.id]: alarm }, { [alarm.id]: reconcileFiredRecord(alarm, NOW + 1) })
+
+    expect(stopAlarmSound).not.toHaveBeenCalled()
+  })
+
+  it('leaves an edited alarm that is still on alone', async () => {
+    const alarm = createAlarm('Standup', NOW, NOW)
+
+    await cleanupRemovedRecords({ [alarm.id]: alarm }, { [alarm.id]: { ...alarm, label: 'Daily standup' } })
+
+    expect(stopAlarmSound).not.toHaveBeenCalled()
+  })
+})
+
+describe('syncAlertBadge', () => {
+  beforeEach(() => {
+    fakeBrowser.reset()
+  })
+
+  const ringing = {
+    recordId: 'a',
+    kind: 'alarm' as const,
+    notificationId: 'chronly-alarm-a',
+    title: 'Wake up',
+    message: 'Your alarm is going off.',
+    firedAt: NOW,
+  }
+
+  it('flags the toolbar icon while something rings', async () => {
+    await syncAlertBadge([ringing])
+
+    expect(await fakeBrowser.action.getBadgeText({})).toBe('!')
+    expect(await fakeBrowser.action.getTitle({})).toBe('Chronly — Wake up is ringing')
+  })
+
+  it('clears the flag once nothing rings', async () => {
+    await syncAlertBadge([ringing])
+    await syncAlertBadge([])
+
+    expect(await fakeBrowser.action.getBadgeText({})).toBe('')
+    expect(await fakeBrowser.action.getTitle({})).toBe('Chronly')
+  })
+})
+
+describe('handleNotificationButton on a Test preview', () => {
+  beforeEach(() => {
+    fakeBrowser.reset()
+  })
+
+  it('clears the preview notification even though no record exists', async () => {
+    await fakeBrowser.notifications.create('chronly-alarm-preview-1', {
+      type: 'basic',
+      iconUrl: '/icon-128.png',
+      title: 'Preview',
+      message: 'Your alarm is going off.',
+    })
+
+    await handleNotificationButton(newStore(), 'chronly-alarm-preview-1', 0, NOW)
+
+    expect(await fakeBrowser.notifications.getAll()).toEqual({})
   })
 })

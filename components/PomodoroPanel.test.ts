@@ -302,4 +302,33 @@ describe('PomodoroPanel', () => {
 
     await waitFor(() => expect(screen.getByText('Sessions').nextElementSibling).toHaveTextContent('1'))
   })
+
+  it('skips straight to the break without counting a session', async () => {
+    await seed('Skippable')
+    await renderSeeded('Skippable')
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Skip to break' }))
+
+    expect(await screen.findByText('Short break')).toBeInTheDocument()
+    expect((await storedPomodoro())?.phase).toBe('shortBreak')
+    expect(await fakeBrowser.storage.local.get('pomodoroStats')).toEqual({})
+  })
+
+  it("shows today's sessions and a week of history", async () => {
+    const today = new Date()
+    const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    await fakeBrowser.storage.local.set({
+      pomodoroStats: {
+        totalFocusSessionsCompleted: 9,
+        totalFocusMs: 9 * 1_500_000,
+        daily: { [key]: { sessions: 2, focusMs: 3_000_000 } },
+      },
+    })
+
+    render(PomodoroPanel)
+
+    await waitFor(() => expect(screen.getByText('Today').nextElementSibling).toHaveTextContent('2'))
+    expect(screen.getByText('Last 7 days · 2 sessions')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Focus sessions over the last 7 days' })).toBeInTheDocument()
+  })
 })

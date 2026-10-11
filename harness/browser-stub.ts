@@ -33,6 +33,7 @@ export const browser = {
   storage: {
     local: createArea('local'),
     sync: createArea('sync'),
+    session: createArea('session'),
     onChanged: {
       addListener: (listener: Listener) => listeners.add(listener),
       removeListener: (listener: Listener) => listeners.delete(listener),
@@ -45,10 +46,14 @@ export const browser = {
     async clear(): Promise<void> {},
   },
   runtime: {
+    getManifest: () => ({ version: 'preview' }),
     async getContexts(): Promise<unknown[]> {
       return []
     },
-    async sendMessage(): Promise<void> {},
+    // No background runs here; report the alert action as handled.
+    async sendMessage(): Promise<boolean> {
+      return true
+    },
   },
   alarms: {
     async get(): Promise<undefined> {

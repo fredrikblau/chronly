@@ -23,7 +23,7 @@ async function seed(...entries: Partial<WorldClockEntry>[]): Promise<void> {
   }
 }
 
-const zoneInput = () => screen.getByPlaceholderText('Time zone (e.g. Asia/Tokyo)')
+const zoneInput = () => screen.getByPlaceholderText('City or time zone, e.g. New York')
 const labelInput = () => screen.getByPlaceholderText('Label')
 const addButton = () => screen.getByRole('button', { name: 'Add' })
 function row(index: number): HTMLElement {
@@ -222,5 +222,25 @@ describe('WorldClockPanel', () => {
     render(WorldClockPanel)
 
     expect(await screen.findByText(/no world clocks yet/i)).toBeInTheDocument()
+  })
+
+  it('finds a zone from a city typed the way people write it', async () => {
+    render(WorldClockPanel)
+
+    await fireEvent.input(zoneInput(), { target: { value: 'new york' } })
+    await fireEvent.click(addButton())
+
+    expect(await screen.findByText('New York')).toBeInTheDocument()
+    expect(screen.getByText('America/New_York')).toBeInTheDocument()
+  })
+
+  it('keeps the typed name for a city that shares another city’s zone', async () => {
+    render(WorldClockPanel)
+
+    await fireEvent.input(zoneInput(), { target: { value: 'San Francisco' } })
+    await fireEvent.click(addButton())
+
+    expect(await screen.findByText('San Francisco')).toBeInTheDocument()
+    expect(screen.getByText('America/Los_Angeles')).toBeInTheDocument()
   })
 })

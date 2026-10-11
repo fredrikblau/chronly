@@ -1,9 +1,11 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  ActiveAlertStore,
   createExtensionStorageBackend,
   createMemoryStorageBackend,
   CustomSoundStore,
+  localDayKey,
   PomodoroStatsStore,
   RecordStore,
   SettingsStore,
@@ -310,9 +312,83 @@ describe('PomodoroStatsStore', () => {
 
   it('accumulates completed focus sessions', async () => {
     const store = new PomodoroStatsStore(createMemoryStorageBackend())
-    await store.recordCompletedFocusSession(25 * 60_000)
-    const stats = await store.recordCompletedFocusSession(25 * 60_000)
-    expect(stats).toEqual({ totalFocusSessionsCompleted: 2, totalFocusMs: 50 * 60_000 })
+    const at = new Date(2026, 1, 2, 9, 0).getTime()
+    await store.recordCompletedFocusSession(25 * 60_000, at)
+    const stats = await store.recordCompletedFocusSession(25 * 60_000, at)
+    expect(stats).toEqual({
+      totalFocusSessionsCompleted: 2,
+      totalFocusMs: 50 * 60_000,
+      daily: { '2026-02-02': { sessions: 2, focusMs: 50 * 60_000 } },
+    })
+  })
+
+  it('groups sessions by local day and keeps a month of history', async () => {
+    const store = new PomodoroStatsStore(createMemoryStorageBackend())
+    for (let day = 1; day <= 40; day++) {
+      await store.recordCompletedFocusSession(60_000, new Date(2026, 0, day, 12).getTime())
+    }
+    const stats = await store.get()
+    const days = Object.keys(stats.daily ?? {})
+    expect(days).toHaveLength(31)
+    expect(days.at(-1)).toBe('2026-02-09')
+    // Totals are all-time and are not trimmed with the history.
+    expect(stats.totalFocusSessionsCompleted).toBe(40)
+  })
+
+  it('extends stats saved before per-day history existed', async () => {
+    const backend = createMemoryStorageBackend()
+    await backend.set('pomodoroStats', { totalFocusSessionsCompleted: 3, totalFocusMs: 75 * 60_000 })
+    const store = new PomodoroStatsStore(backend)
+    const stats = await store.recordCompletedFocusSession(60_000, new Date(2026, 1, 2).getTime())
+    expect(stats.totalFocusSessionsCompleted).toBe(4)
+    expect(stats.daily).toEqual({ '2026-02-02': { sessions: 1, focusMs: 60_000 } })
+  })
+})
+
+describe('localDayKey', () => {
+  it('formats the local calendar day with zero padding', () => {
+    expect(localDayKey(new Date(2026, 0, 5, 23, 59).getTime())).toBe('2026-01-05')
+  })
+})
+
+describe('ActiveAlertStore', () => {
+  const alert = (recordId: string, firedAt: number) => ({
+    recordId,
+    kind: 'alarm' as const,
+    notificationId: `chronly-alarm-${recordId}`,
+    title: recordId,
+    message: 'Your alarm is going off.',
+    firedAt,
+  })
+
+  it('lists ringing alerts oldest first', async () => {
+    const store = new ActiveAlertStore(createMemoryStorageBackend())
+    await store.add(alert('b', 2))
+    await store.add(alert('a', 1))
+    expect((await store.getAll()).map((entry) => entry.recordId)).toEqual(['a', 'b'])
+  })
+
+  it('replaces the entry for a record that fires again', async () => {
+    const store = new ActiveAlertStore(createMemoryStorageBackend())
+    await store.add(alert('a', 1))
+    await store.add(alert('a', 5))
+    expect(await store.getAll()).toEqual([alert('a', 5)])
+  })
+
+  it('removes and clears entries', async () => {
+    const store = new ActiveAlertStore(createMemoryStorageBackend())
+    await store.add(alert('a', 1))
+    await store.add(alert('b', 2))
+    await store.remove('a')
+    expect(await store.get('a')).toBeUndefined()
+    await store.clear()
+    expect(await store.getAll()).toEqual([])
+  })
+
+  it('preserves concurrent additions', async () => {
+    const store = new ActiveAlertStore(createMemoryStorageBackend())
+    await Promise.all([store.add(alert('a', 1)), store.add(alert('b', 2)), store.add(alert('c', 3))])
+    expect(await store.getAll()).toHaveLength(3)
   })
 })
 

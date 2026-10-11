@@ -18,6 +18,7 @@ const root = (container: HTMLElement): HTMLElement => {
 describe('popup App', () => {
   beforeEach(() => {
     fakeBrowser.reset()
+    localStorage.clear()
   })
 
   afterEach(() => vi.restoreAllMocks())
@@ -35,7 +36,7 @@ describe('popup App', () => {
     ])
   })
 
-  it('opens on the clock tab', () => {
+  it('opens on the clock tab the first time', () => {
     render(App)
     expect(screen.getByRole('tab', { name: 'Clock' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tabpanel', { name: 'Clock' })).toBeVisible()
@@ -59,6 +60,35 @@ describe('popup App', () => {
     await fireEvent.keyDown(screen.getByRole('tab', { name: 'Alarms' }), { key: 'ArrowLeft' })
     await fireEvent.keyDown(screen.getByRole('tab', { name: 'Clock' }), { key: 'ArrowLeft' })
     expect(screen.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('jumps to a tab with its number key', async () => {
+    render(App)
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Clock' })).not.toBeDisabled())
+
+    await fireEvent.keyDown(window, { key: '6' })
+
+    expect(screen.getByRole('tab', { name: 'Focus' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('leaves number keys alone while typing in a field', async () => {
+    render(App)
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Clock' })).not.toBeDisabled())
+    await fireEvent.click(screen.getByRole('tab', { name: 'Timers' }))
+
+    await fireEvent.keyDown(screen.getByLabelText('Timer label'), { key: '2' })
+
+    expect(screen.getByRole('tab', { name: 'Timers' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('reopens on the last tab used', async () => {
+    const first = render(App)
+    await fireEvent.click(screen.getByRole('tab', { name: 'World' }))
+    first.unmount()
+
+    render(App)
+
+    expect(screen.getByRole('tab', { name: 'World' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('keeps inactive panels mounted so their storage subscriptions stay live', async () => {

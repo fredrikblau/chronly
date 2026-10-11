@@ -1,4 +1,4 @@
-import type { BackgroundConfig } from '../core/types'
+import { DEFAULT_SETTINGS, type BackgroundConfig } from '../core/types'
 
 /**
  * Which way round a surface reads: 'dark' wants light text on it, 'light' wants
@@ -84,4 +84,29 @@ export function backgroundSurface(background: BackgroundConfig): Surface | 'unkn
   const luminance = surfaceLuminance(background.value)
   if (luminance === null) return 'unknown'
   return luminance < 0.5 ? 'dark' : 'light'
+}
+
+/** The plain surfaces behind the default background, one per palette. */
+export const SURFACE_BG: Record<Surface, string> = { dark: '#0b0b0f', light: '#f6f6f9' }
+
+/** Whether the background is still the stock one, which follows the theme. */
+export function isDefaultBackground(background: BackgroundConfig): boolean {
+  return background.type === 'solid' && background.value.toLowerCase() === DEFAULT_SETTINGS.background.value
+}
+
+/**
+ * Decide the palette and what to paint behind it. The theme governs the default
+ * background. A background someone picked brings its own palette, because a
+ * light gradient under light-on-dark text is unreadable, and refusing to paint
+ * it would make the pick look broken. Only an unreadable colour falls back.
+ */
+export function resolveCanvas(
+  background: BackgroundConfig,
+  themeSurface: Surface,
+): { surface: Surface; canvas: string; followsBackground: boolean } {
+  const measured = backgroundSurface(background)
+  if (isDefaultBackground(background) || measured === 'unknown') {
+    return { surface: themeSurface, canvas: SURFACE_BG[themeSurface], followsBackground: false }
+  }
+  return { surface: measured, canvas: background.value, followsBackground: true }
 }

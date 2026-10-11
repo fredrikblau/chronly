@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cityFromZone,
   formatTimeInZone,
   formatUtcOffsetLabel,
   getCalendarDateParts,
   getDayOffset,
   getRelativeDiffLabel,
   getUtcOffsetMinutes,
+  resolveTimeZone,
   zonedWallTimeToInstant,
 } from './time'
 
@@ -50,7 +52,9 @@ describe('getDayOffset', () => {
   })
 
   it('is positive when the target zone is a calendar day ahead', () => {
-    expect(getDayOffset('America/Los_Angeles', 'Pacific/Kiritimati', new Date('2026-01-15T20:00:00Z'))).toBeGreaterThan(0)
+    expect(getDayOffset('America/Los_Angeles', 'Pacific/Kiritimati', new Date('2026-01-15T20:00:00Z'))).toBeGreaterThan(
+      0,
+    )
   })
 })
 
@@ -77,5 +81,48 @@ describe('zonedWallTimeToInstant', () => {
   it('round-trips a daylight-saving wall clock in New York', () => {
     const instant = zonedWallTimeToInstant('America/New_York', 2026, 7, 15, 9, 0)
     expect(formatTimeInZone(instant, 'America/New_York', { hour12: false, showSeconds: false })).toBe('09:00')
+  })
+})
+
+describe('resolveTimeZone', () => {
+  const zones = ['America/New_York', 'America/Sao_Paulo', 'Asia/Tokyo', 'Europe/London', 'UTC']
+
+  it('accepts an exact zone id in any case', () => {
+    expect(resolveTimeZone('asia/tokyo', zones)).toBe('Asia/Tokyo')
+  })
+
+  it('finds a zone from its city as people write it', () => {
+    expect(resolveTimeZone('New York', zones)).toBe('America/New_York')
+    expect(resolveTimeZone('  tokyo ', zones)).toBe('Asia/Tokyo')
+  })
+
+  it('ignores accents when matching a city', () => {
+    expect(resolveTimeZone('São Paulo', zones)).toBe('America/Sao_Paulo')
+  })
+
+  it('maps a major city without its own zone onto the zone it keeps time with', () => {
+    expect(resolveTimeZone('San Francisco', zones)).toBe('America/Los_Angeles')
+    expect(resolveTimeZone('mumbai', zones)).toBe('Asia/Kolkata')
+  })
+
+  it('falls back to any zone id the runtime understands', () => {
+    expect(resolveTimeZone('Etc/GMT+5', zones)).toBe('Etc/GMT+5')
+  })
+
+  it('returns null for something that is not a place', () => {
+    expect(resolveTimeZone('Atlantis', zones)).toBeNull()
+    expect(resolveTimeZone('   ', zones)).toBeNull()
+  })
+})
+
+describe('cityFromZone', () => {
+  it('reads the last segment with spaces', () => {
+    expect(cityFromZone('America/Argentina/Buenos_Aires')).toBe('Buenos Aires')
+  })
+})
+
+describe('resolveTimeZone canonical spelling', () => {
+  it('stores the runtime spelling of a zone typed in any case', () => {
+    expect(resolveTimeZone('etc/gmt+5', [])).toBe('Etc/GMT+5')
   })
 })

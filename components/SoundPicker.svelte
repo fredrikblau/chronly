@@ -2,6 +2,7 @@
   import { SOUND_PRESETS, playAlarmSound } from '../lib/core/audio'
   import type { CustomSound } from '../lib/core/types'
   import { customSounds, soundActions } from '../lib/ui/sounds'
+  import Icon from './Icon.svelte'
 
   let { soundId = $bindable('default'), volume = $bindable(0.8) } = $props<{
     soundId?: string
@@ -20,11 +21,6 @@
       (sound, index, list) => list.findIndex((candidate) => candidate.id === sound.id) === index,
     ),
   )
-
-  const sounds = $derived([
-    ...SOUND_PRESETS.map((sound) => ({ id: sound.id, label: sound.label, detail: sound.description })),
-    ...allCustomSounds.map((sound) => ({ id: sound.id, label: sound.name, detail: 'Imported audio' })),
-  ])
 
   function test() {
     error = ''
@@ -99,48 +95,117 @@
 
 <div class="sound-picker">
   <div class="sound-line">
-    <select aria-label="Sound" bind:value={soundId}>
-      {#each sounds as sound (sound.id)}
-        <option value={sound.id}>{sound.label} — {sound.detail}</option>
-      {/each}
+    <select class="input" aria-label="Sound" bind:value={soundId}>
+      <optgroup label="Built-in">
+        {#each SOUND_PRESETS as sound (sound.id)}
+          <option value={sound.id}>{sound.label} — {sound.description}</option>
+        {/each}
+      </optgroup>
+      {#if allCustomSounds.length}
+        <optgroup label="Imported">
+          {#each allCustomSounds as sound (sound.id)}
+            <option value={sound.id}>{sound.name}</option>
+          {/each}
+        </optgroup>
+      {/if}
     </select>
-    <button type="button" class="icon" aria-label="Play selected sound" onclick={test}>▶</button>
+    <button type="button" class="icon-btn boxed" title="Play" aria-label="Play selected sound" onclick={test}>
+      <Icon name="play" size={14} />
+    </button>
   </div>
-  <div class="sound-actions">
-    <button type="button" class="link" onclick={() => fileInput.click()}>Import audio</button>
-    {#if soundId.startsWith('custom-')}
-      <button type="button" class="link danger" disabled={removing} onclick={removeSelected}>
-        {removing ? 'Removing…' : 'Remove'}
+  <div class="sound-line">
+    <label class="volume">
+      <Icon name="volume" size={16} />
+      <input type="range" min="0" max="1" step="0.05" aria-label="Volume" bind:value={volume} />
+      <output>{Math.round(volume * 100)}%</output>
+    </label>
+    <div class="sound-actions">
+      {#if soundId.startsWith('custom-')}
+        <button type="button" class="btn btn-quiet btn-sm btn-danger" disabled={removing} onclick={removeSelected}>
+          {removing ? 'Removing…' : 'Remove'}
+        </button>
+      {/if}
+      <button
+        type="button"
+        class="btn btn-quiet btn-sm"
+        title="MP3, WAV, OGG, M4A, AAC, FLAC or WebM, up to 5 MB"
+        onclick={() => fileInput.click()}
+      >
+        <Icon name="upload" size={13} /> Import
       </button>
-    {/if}
+    </div>
     <input
       bind:this={fileInput}
       class="file-input"
       type="file"
+      tabindex="-1"
+      aria-label="Import an audio file"
       accept="audio/*,.mp3,.wav,.ogg,.oga,.m4a,.aac,.flac,.webm"
       onchange={importSound}
     />
   </div>
-  <label class="volume">
-    <span>Volume</span>
-    <input type="range" min="0" max="1" step="0.05" aria-label="Volume" bind:value={volume} />
-    <output>{Math.round(volume * 100)}%</output>
-  </label>
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
 </div>
 
 <style>
-  .sound-picker { display: grid; gap: 0.35rem; }
-  .sound-line { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem; }
-  select, button { font: inherit; }
-  select { min-width: 0; padding: 0.45rem; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: .45rem; background: var(--field, rgba(0,0,0,.2)); color: inherit; }
-  .icon { width: 2rem; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: .45rem; background: var(--tint, rgba(255,255,255,.05)); color: inherit; cursor: pointer; }
-  .sound-actions { display: flex; gap: .7rem; align-items: center; }
-  .link { padding: 0; border: 0; background: none; color: var(--accent-ink, var(--accent, #8b7cf6)); font-size: .72rem; cursor: pointer; }
-  .danger { color: var(--danger, #fca5a5); }
-  .file-input { width: 100%; color: var(--muted, rgba(255,255,255,.6)); font-size: .7rem; }
-  .error { margin: 0; color: var(--danger, #fca5a5); font-size: .72rem; }
-  .volume { display: grid; grid-template-columns: auto 1fr auto; gap: .5rem; align-items: center; color: var(--muted, rgba(255,255,255,.6)); font-size: .72rem; }
-  .volume input { min-width: 0; width: 100%; accent-color: var(--accent, #8b7cf6); }
-  .volume output { min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }
+  .sound-picker {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .sound-line {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  select {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .icon-btn {
+    width: 2.125rem;
+    height: 2.125rem;
+  }
+
+  .volume {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    color: var(--fg-muted);
+    font-size: 0.75rem;
+  }
+
+  .volume input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .volume output {
+    min-width: 3.2ch;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sound-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.1rem;
+  }
+
+  /* The picker is a styled button; the native control stays in the DOM, out of
+     sight, so the file dialog and drag-and-drop testing hooks keep working. */
+  .file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    opacity: 0;
+  }
 </style>

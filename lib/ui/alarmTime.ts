@@ -10,30 +10,7 @@ const DAY_MS = 24 * HOUR_MS
 const WEEKDAYS = [1, 2, 3, 4, 5]
 const WEEKEND = [0, 6]
 
-/**
- * Alarms fire by device-local wall-clock time (not a saved timezone) — the same
- * assumption a phone's alarm clock makes, and what "set an alarm for 7am" means
- * to a user.
- *
- * `days` (0 = Sunday) is the repeat schedule. Without it the answer is simply
- * today or tomorrow; with it the first ring has to land on a selected day,
- * otherwise a Mon/Wed alarm created on a Friday morning would ring that same
- * Friday before the recurrence logic ever gets a say.
- */
-export function nextOccurrence(hour: number, minute: number, now: number, days?: number[]): number {
-  const candidate = new Date(now)
-  candidate.setHours(hour, minute, 0, 0)
-  if (candidate.getTime() <= now) candidate.setDate(candidate.getDate() + 1)
-  if (!days || days.length === 0) return candidate.getTime()
-  for (let i = 0; i < 7; i++) {
-    if (days.includes(candidate.getDay())) break
-    candidate.setDate(candidate.getDate() + 1)
-    // Re-apply the wall-clock time: a DST boundary crossed by the day step
-    // would otherwise shift the alarm by an hour.
-    candidate.setHours(hour, minute, 0, 0)
-  }
-  return candidate.getTime()
-}
+export { nextOccurrence } from '../core/scheduler'
 
 function sameDays(days: number[], expected: number[]): boolean {
   return days.length === expected.length && expected.every((d) => days.includes(d))
