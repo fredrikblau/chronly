@@ -11,5 +11,6 @@ Human contributors: [CONTRIBUTING.md](CONTRIBUTING.md) has everything here and m
 - Style with the tokens and classes in `entrypoints/popup/theme.css`.
 - Run `npm run check` before finishing. For extension wiring or user flows, also
   run `npm run build && npm run test:e2e` (prefix `xvfb-run -a` on headless
-  Linux; set `CHROMIUM_PATH` to reuse an installed Chromium).
+  Linux; set `CHROMIUM_PATH` to reuse an installed Chromium), and
+  `npm run zip:firefox && npm run test:firefox` for Firefox.
 - Never add telemetry, accounts, host permissions, or remote code.

@@ -16,7 +16,9 @@ import {
   extractRecordId,
   handleAlertAction,
   handleNotificationButton,
+  handleNotificationClicked,
   handleNotificationClosed,
+  isUserClose,
   observeBackgroundTask,
   reconcileDueRecords,
   syncAlertBadge,
@@ -259,8 +261,8 @@ describe('handleNotificationButton', () => {
 
     await handleNotificationButton(store, `chronly-alarm-${alarm.id}`, 0, NOW + 5000)
     // Clearing a notification fires onClosed, which must not treat a freshly
-    // snoozed alarm as acknowledged.
-    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`)
+    // snoozed alarm as acknowledged, even if the browser reports it as the user's.
+    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`, true)
 
     expect(await store.get(alarm.id)).toBeDefined()
   })
@@ -327,7 +329,7 @@ describe('handleNotificationClosed', () => {
     await store.upsert(countdown)
     await reconcileDueRecords(store, NOW + 1000)
 
-    await handleNotificationClosed(store, `chronly-countdown-${countdown.id}`)
+    await handleNotificationClosed(store, `chronly-countdown-${countdown.id}`, true)
 
     expect(await store.get(countdown.id)).toBeUndefined()
   })
@@ -338,9 +340,38 @@ describe('handleNotificationClosed', () => {
     await store.upsert(alarm)
     await reconcileDueRecords(store, NOW + 1)
 
-    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`)
+    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`, true)
 
     expect(await store.get(alarm.id)).toBeDefined()
+  })
+
+  it('keeps ringing when the system, not the user, closes the notification', async () => {
+    // Firefox reports a notification it could not show (blocked, Do Not
+    // Disturb) as closed at once, without saying who closed it. Treating that
+    // as a dismissal silenced alarms the moment they rang.
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+    await reconcileDueRecords(store, NOW + 1)
+
+    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`)
+    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`, false)
+
+    expect(stopAlarmSound).not.toHaveBeenCalled()
+    await vi.waitFor(async () => expect(await alerts().get(alarm.id)).toBeDefined())
+  })
+
+  it('acknowledges an alert when its notification is clicked', async () => {
+    const store = newStore()
+    const countdown = createCountdown('Tea', 1000, NOW)
+    await store.upsert(countdown)
+    await reconcileDueRecords(store, NOW + 1000)
+
+    await handleNotificationClicked(store, `chronly-countdown-${countdown.id}`, NOW + 2000)
+
+    expect(stopAlarmSound).toHaveBeenCalledWith(countdown.id)
+    expect(await store.get(countdown.id)).toBeUndefined()
+    expect(await fakeBrowser.notifications.getAll()).toEqual({})
   })
 })
 
@@ -405,7 +436,7 @@ describe('ringing alerts', () => {
       ]),
     )
 
-    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`)
+    await handleNotificationClosed(store, `chronly-alarm-${alarm.id}`, true)
     await vi.waitFor(async () => expect(await alerts().getAll()).toEqual([]))
   })
 
@@ -568,5 +599,16 @@ describe('handleNotificationButton on a Test preview', () => {
     await handleNotificationButton(newStore(), 'chronly-alarm-preview-1', 0, NOW)
 
     expect(await fakeBrowser.notifications.getAll()).toEqual({})
+  })
+})
+
+describe('isUserClose', () => {
+  it('trusts Chrome when it says the person closed the notification', () => {
+    expect(isUserClose(true, false)).toBe(true)
+    expect(isUserClose(false, false)).toBe(false)
+  })
+
+  it('never trusts Firefox, which reports every close as the user’s', () => {
+    expect(isUserClose(true, true)).toBe(false)
   })
 })

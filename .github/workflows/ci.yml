@@ -30,6 +30,8 @@ jobs:
       - run: npm run zip:firefox
       - run: npm run verify:manifests
       - run: npm run lint:firefox
+      # GitHub's Ubuntu runners ship Firefox and geckodriver.
+      - run: npm run test:firefox
       - run: npx playwright install --with-deps chromium
       # Loading an unpacked extension needs a headed Chromium, so the runner
       # gets a virtual framebuffer.

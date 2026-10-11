@@ -44,6 +44,14 @@ npm run build
 npm run test:e2e         # on headless Linux: xvfb-run -a npm run test:e2e
 ```
 
+Firefox has its own smoke suite, which drives the built Firefox package through
+WebDriver:
+
+```bash
+npm run zip:firefox
+npm run test:firefox     # set FIREFOX_PATH / GECKODRIVER_PATH to pick specific binaries
+```
+
 Playwright downloads its own Chromium on first use (`npx playwright install
 chromium`). If you already have a Chromium, point the suite at it instead:
 `CHROMIUM_PATH=/path/to/chromium npm run test:e2e`.

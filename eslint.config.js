@@ -27,7 +27,7 @@ export default tseslint.config(
   },
   {
     // Build scripts, Playwright specs, and tool configs run in Node.
-    files: ['scripts/**', 'e2e/**', '*.config.ts', '*.config.js'],
+    files: ['scripts/**', 'e2e/**', 'e2e-firefox/**', '*.config.ts', '*.config.js'],
     languageOptions: {
       globals: { ...globals.node },
     },

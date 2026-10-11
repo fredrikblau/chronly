@@ -91,7 +91,14 @@ sequenceDiagram
 ```
 
 Both paths end in `handleAlertAction`, so the banner and the notification
-buttons can never disagree. The popup sends a message rather than acting
+buttons can never disagree. Clicking the notification body dismisses it too.
+
+Closing a notification only counts as a dismissal when the browser says the
+person did it. Browsers also close notifications on their own: one that could
+not be shown (notifications blocked, Do Not Disturb), one that timed out, one
+moved into a notification centre. Firefox reports every one of those as closed
+by the user (Mozilla bug 1413188), so on Firefox a close never dismisses.
+Those alerts keep ringing, with the badge and banner to stop them. The popup sends a message rather than acting
 itself because on Firefox the sound plays inside the background page, which
 only the background can stop.
 
@@ -130,13 +137,14 @@ when things ring easy to test in isolation.
 
 ## Testing layers
 
-| Layer                | Tool                                      | Where                            |
-| -------------------- | ----------------------------------------- | -------------------------------- |
-| Core logic           | Vitest                                    | `lib/**/*.test.ts`               |
-| Panels and the popup | Vitest, Testing Library, jsdom            | `components/*.test.ts`, `tests/` |
-| Background wiring    | Vitest with `@webext-core/fake-browser`   | `tests/background.test.ts`       |
-| The real extension   | Playwright driving a built Chromium build | `e2e/*.spec.ts`                  |
-| Accessibility        | axe-core (WCAG 2.1 AA) in Playwright      | `e2e/accessibility.spec.ts`      |
+| Layer                | Tool                                           | Where                            |
+| -------------------- | ---------------------------------------------- | -------------------------------- |
+| Core logic           | Vitest                                         | `lib/**/*.test.ts`               |
+| Panels and the popup | Vitest, Testing Library, jsdom                 | `components/*.test.ts`, `tests/` |
+| Background wiring    | Vitest with `@webext-core/fake-browser`        | `tests/background.test.ts`       |
+| The real extension   | Playwright driving a built Chromium build      | `e2e/*.spec.ts`                  |
+| Accessibility        | axe-core (WCAG 2.1 AA) in Playwright           | `e2e/accessibility.spec.ts`      |
+| Firefox              | Selenium WebDriver driving the Firefox package | `e2e-firefox/smoke.mjs`          |
 
 The end-to-end suite seeds records a few seconds in the future to watch the
 background worker fire them, and checks notifications, the badge, and

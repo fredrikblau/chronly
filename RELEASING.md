@@ -47,7 +47,9 @@ store or label it stable.
       notification fires (not zero, not a replay).
 - [ ] Firefox temporary smoke: load `.output/firefox-mv3/manifest.json` through
       `about:debugging` → "Load Temporary Add-on" and check the popup, alarm
-      audio, and native New Tab page.
+      audio, and native New Tab page. Let a timer ring and let its
+      notification time out: the sound must keep ringing until you click the
+      notification or press **Dismiss** in the popup.
 - [ ] Firefox restart: install an AMO-signed candidate in release Firefox, or
       install the unsigned ZIP through `about:addons` in a dedicated Developer
       Edition or Nightly profile with signature enforcement disabled. Confirm
@@ -59,8 +61,13 @@ store or label it stable.
 - [ ] Tag the release and attach the zipped builds produced by `npm run zip`
       and `npm run zip:firefox` (both land in `.output/`).
 
-`npm run lint:firefox` and `web-ext run` provide automated artifact/install
-coverage for Firefox. Firefox unloads temporary add-ons at restart, and its
-remote automation does not allow scripted navigation into `moz-extension://`
-pages. Run the popup and audio checks through Firefox's UI; use a signed or
-development-edition install for the restart check.
+`npm run lint:firefox` checks the Firefox artifact, and `npm run test:firefox`
+(also in CI) loads it into real Firefox and drives the popup: alarms, a timer
+and an alarm ringing through the background page, Dismiss and Snooze from the
+popup, Pomodoro phases, the stopwatch, world clocks, sound import, and
+backgrounds. WebDriver may not navigate to `moz-extension://` pages directly,
+so the suite opens the popup from Firefox's privileged chrome context.
+
+Automation cannot hear audio or see a desktop notification, so still run the
+Firefox temporary smoke above by hand. Firefox unloads temporary add-ons at
+restart; use a signed or development-edition install for the restart check.

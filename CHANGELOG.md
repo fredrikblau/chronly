@@ -66,6 +66,10 @@ All notable changes to Chronly are documented here. The format follows
 - In 12-hour mode the AM/PM marker no longer wraps under the clock.
 - Choosing a background that did not match the current theme silently did
   nothing; a chosen background now sets a readable text palette of its own.
+- On Firefox, an alarm whose notification could not be shown (notifications
+  blocked, Do Not Disturb) or that timed out stopped ringing at once, because
+  Firefox reports every notification close as the user's. Only a click on the
+  notification or Dismiss in the popup stops a Firefox alert now.
 - A popup taller than its window no longer shows a horizontal scrollbar.
 - Secondary text and accent-coloured text meet WCAG 2.1 AA contrast in both
   themes; an axe audit of every tab now runs in the end-to-end suite.
@@ -76,4 +80,5 @@ All notable changes to Chronly are documented here. The format follows
 
 - The popup has a refreshed design built on shared theme tokens and an icon
   set, a fixed height with only the panel area scrolling, and the end-to-end
-  suite now covers every feature in a real Chromium build.
+  suite now covers every feature in a real Chromium build. A Firefox smoke
+  suite runs the Firefox package in real Firefox in CI.

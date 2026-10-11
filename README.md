@@ -43,7 +43,8 @@ around not letting that happen.
 - **You can always stop it.** Sound and a system notification fire together.
   If the notification is hidden or blocked, the toolbar icon shows a badge and
   the popup shows Snooze and Dismiss, which matters on Firefox, where
-  notifications have no buttons.
+  notifications have no buttons. On Firefox, click the notification or press
+  Dismiss in the popup to stop it.
 - **It stays yours.** No account, analytics, ads, remote code, or host
   permissions. Everything is stored in your browser, and you can export it to a
   file.

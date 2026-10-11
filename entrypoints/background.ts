@@ -222,11 +222,47 @@ export async function handleNotificationButton(
 }
 
 /**
- * Closing a notification acknowledges it. This is also the only dismissal path
- * on Firefox, which supports no notification buttons — clicking the body there
- * closes the notification and lands here.
+ * Clicking a notification's body acknowledges it. On Firefox, which shows no
+ * notification buttons, this is the notification's only way to stop the ring.
  */
-export async function handleNotificationClosed(store: RecordStore, notificationId: string): Promise<void> {
+export async function handleNotificationClicked(
+  store: RecordStore,
+  notificationId: string,
+  now: number,
+): Promise<void> {
+  const parsed = parseNotificationId(notificationId)
+  if (!parsed) return
+  await handleAlertAction(store, parsed.recordId, 'dismiss', now, notificationId)
+}
+
+/**
+ * Whether a notification close came from the person rather than the system.
+ * Firefox passes `byUser: true` for every close (Mozilla bug 1413188), even for
+ * a notification it could never display, so on Firefox no close counts.
+ */
+export function isUserClose(
+  byUser: boolean | undefined,
+  isFirefox: boolean = import.meta.env.BROWSER === 'firefox',
+): boolean {
+  return !isFirefox && byUser === true
+}
+
+/**
+ * Only a close made by the person acknowledges an alert.
+ *
+ * A notification can close without anyone seeing it: Firefox closes one it
+ * could not display (notifications blocked, Do Not Disturb, no notification
+ * service) or that timed out, and Chrome closes one it moves aside. Treating
+ * every close as a dismissal silenced those alarms the moment they rang. So any
+ * other close leaves the alert ringing, with the toolbar badge and the popup's
+ * banner there to stop it: failing loud rather than silent.
+ */
+export async function handleNotificationClosed(
+  store: RecordStore,
+  notificationId: string,
+  byUser?: boolean,
+): Promise<void> {
+  if (byUser !== true) return
   const record = await store.get(extractRecordId(notificationId))
   // The notification may already have advanced a recurring alarm or a
   // Pomodoro into its next state, so `notified` is not a reliable playback
@@ -276,7 +312,8 @@ export default defineBackground(() => {
   })
 
   // Firefox has no notification buttons and does not define this event at all;
-  // touching it there throws. Its dismissal path is onClosed instead.
+  // touching it there throws. Its dismissal paths are a click on the
+  // notification and the popup's ringing banner.
   if (browser.notifications.onButtonClicked) {
     browser.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
       observeBackgroundTask(
@@ -288,20 +325,18 @@ export default defineBackground(() => {
   }
 
   if (browser.notifications.onClicked) {
-    // Clicking the body acknowledges the notification. Clearing it routes
-    // through onClosed, which owns the cleanup.
     browser.notifications.onClicked.addListener((notificationId) => {
       observeBackgroundTask(
-        browser.notifications.clear(notificationId),
-        'could not clear clicked notification',
+        handleNotificationClicked(store, notificationId, Date.now()),
+        'could not handle notification click',
         notificationId,
       )
     })
   }
 
-  browser.notifications.onClosed.addListener((notificationId) => {
+  browser.notifications.onClosed.addListener((notificationId, byUser) => {
     observeBackgroundTask(
-      handleNotificationClosed(store, notificationId),
+      handleNotificationClosed(store, notificationId, isUserClose(byUser)),
       'could not handle notification close',
       notificationId,
     )
