@@ -24,8 +24,10 @@ import {
   CustomSoundStore,
   PomodoroStatsStore,
   RecordStore,
+  SettingsStore,
 } from '../lib/core/storage'
-import type { ActiveAlert, SchedulableRecord } from '../lib/core/types'
+import { toolbarTitle } from '../lib/core/toolbar'
+import type { SchedulableRecord } from '../lib/core/types'
 
 export const TICK_ALARM_NAME = 'tick'
 export const TICK_PERIOD_MINUTES = 0.5
@@ -278,21 +280,23 @@ export async function handleNotificationClosed(
 }
 
 /**
- * The toolbar badge marks a ringing alert, so a sound with no visible
- * notification still points at where to stop it. The action API is missing in
- * some test and preview environments; the badge is a hint, never load-bearing.
+ * The toolbar button reflects what matters without opening the popup: a badge
+ * while anything rings, so a sound with no visible notification still points
+ * at where to stop it, and a tooltip naming the ringing alert or the next
+ * alarm. The action API is missing in some test and preview environments; the
+ * button is a hint, never load-bearing.
  */
-export async function syncAlertBadge(alerts: ActiveAlert[]): Promise<void> {
+export async function refreshToolbar(store: RecordStore, now: number): Promise<void> {
   const action = browser.action
   if (!action?.setBadgeText) return
-  const [first] = alerts
-  await action.setBadgeText({ text: first ? '!' : '' })
-  if (first) await action.setBadgeBackgroundColor({ color: '#e5484d' })
-  await action.setTitle({
-    title: first
-      ? `Chronly — ${first.title} is ringing${alerts.length > 1 ? ` (+${alerts.length - 1} more)` : ''}`
-      : 'Chronly',
-  })
+  const [alerts, records, settings] = await Promise.all([
+    alertStore().getAll(),
+    store.getAll(),
+    new SettingsStore(createExtensionStorageBackend('sync')).get(),
+  ])
+  await action.setBadgeText({ text: alerts.length ? '!' : '' })
+  if (alerts.length) await action.setBadgeBackgroundColor({ color: '#e5484d' })
+  await action.setTitle({ title: toolbarTitle(alerts, records, now, { hour12: settings.hour12 }) })
 }
 
 export default defineBackground(() => {
@@ -309,6 +313,10 @@ export default defineBackground(() => {
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name !== TICK_ALARM_NAME && !alarm.name.startsWith(RECORD_ALARM_PREFIX)) return
     observeBackgroundTask(reconcileDueRecords(store, Date.now()), 'could not reconcile scheduled records', alarm.name)
+    // Keeps "today" and "tomorrow" in the tooltip true across midnight.
+    if (alarm.name === TICK_ALARM_NAME) {
+      observeBackgroundTask(refreshToolbar(store, Date.now()), 'could not update the toolbar button')
+    }
   })
 
   // Firefox has no notification buttons and does not define this event at all;
@@ -344,6 +352,7 @@ export default defineBackground(() => {
 
   browser.runtime.onInstalled.addListener(() => {
     observeBackgroundTask(ensureTickAlarm(), 'could not ensure the tick alarm after install')
+    observeBackgroundTask(refreshToolbar(store, Date.now()), 'could not update the toolbar button')
   })
 
   browser.runtime.onStartup.addListener(() => {
@@ -375,9 +384,8 @@ export default defineBackground(() => {
   // Schedule a newly-created or edited record immediately instead of waiting
   // for the coarse reconciliation tick to discover it.
   browser.storage.onChanged.addListener((changes, areaName) => {
-    if (changes[ACTIVE_ALERTS_KEY]) {
-      const alerts = Object.values((changes[ACTIVE_ALERTS_KEY].newValue ?? {}) as Record<string, ActiveAlert>)
-      observeBackgroundTask(syncAlertBadge(alerts), 'could not update the toolbar badge')
+    if (changes[ACTIVE_ALERTS_KEY] || changes.settings || (areaName === 'local' && changes.records)) {
+      observeBackgroundTask(refreshToolbar(store, Date.now()), 'could not update the toolbar button')
     }
     if (areaName !== 'local' || !changes.records) return
     observeBackgroundTask(

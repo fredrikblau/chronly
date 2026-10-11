@@ -8,7 +8,7 @@ import { expect, type BrowserContext, type Locator, type Page } from '@playwrigh
 export interface ChromeApi {
   alarms: { getAll(): Promise<Array<{ name: string; scheduledTime: number }>> }
   notifications: { getAll(): Promise<Record<string, unknown>> }
-  action: { getBadgeText(details: object): Promise<string> }
+  action: { getBadgeText(details: object): Promise<string>; getTitle(details: object): Promise<string> }
   runtime: { sendMessage(message: object): Promise<unknown> }
   storage: Record<'local' | 'sync' | 'session', StorageArea>
 }
@@ -118,6 +118,10 @@ export async function soundStatus(page: Page): Promise<{ active: string[]; audib
     chrome.runtime.sendMessage({ target: 'offscreen', type: 'sound-status' }),
   )) as { active: string[]; audible: string[] } | undefined
   return reply ?? { active: [], audible: [] }
+}
+
+export async function toolbarTitle(page: Page): Promise<string> {
+  return page.evaluate(() => chrome.action.getTitle({}))
 }
 
 export async function badgeText(page: Page): Promise<string> {

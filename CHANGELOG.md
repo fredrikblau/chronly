@@ -22,6 +22,8 @@ All notable changes to Chronly are documented here. The format follows
 - Alarm sounds can repeat until dismissed, with clearer sound choices and a
   dedicated, live-updating stopwatch tab.
 - The browser’s default New Tab page is preserved; Chronly does not override it.
+- Hovering the toolbar button names the next alarm ("next alarm tomorrow
+  07:00 (Wake up)"), following the 12/24-hour setting.
 - A ringing banner in the popup with Snooze, Pause, and Dismiss, and a toolbar
   badge while anything rings, so an alert can be stopped even where the system
   notification has no buttons (Firefox) or has been hidden.

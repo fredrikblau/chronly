@@ -11,6 +11,7 @@ import {
   recordAlarmNames,
   seedRecord,
   soundStatus,
+  toolbarTitle,
 } from './helpers'
 
 test('creates a repeating alarm and schedules it with the browser', async ({ context, extensionId }) => {
@@ -26,6 +27,8 @@ test('creates a repeating alarm and schedules it with the browser', async ({ con
   await expect(row).toContainText('Weekdays')
   await expect(row.getByRole('switch', { name: 'Wake up alarm' })).toBeChecked()
   await expect.poll(() => recordAlarmNames(page)).toHaveLength(1)
+  // The toolbar tooltip names it, so it can be checked without the popup.
+  await expect.poll(() => toolbarTitle(page)).toMatch(/^Chronly — next alarm .+ 06:45 \(Wake up\)$/)
 })
 
 test('switches an alarm off and on, clearing and restoring its schedule', async ({ context, extensionId }) => {

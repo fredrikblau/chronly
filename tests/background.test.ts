@@ -21,7 +21,7 @@ import {
   isUserClose,
   observeBackgroundTask,
   reconcileDueRecords,
-  syncAlertBadge,
+  refreshToolbar,
   TICK_ALARM_NAME,
   TICK_PERIOD_MINUTES,
 } from '../entrypoints/background'
@@ -555,7 +555,7 @@ describe('ringing alerts', () => {
   })
 })
 
-describe('syncAlertBadge', () => {
+describe('refreshToolbar', () => {
   beforeEach(() => {
     fakeBrowser.reset()
   })
@@ -570,18 +570,32 @@ describe('syncAlertBadge', () => {
   }
 
   it('flags the toolbar icon while something rings', async () => {
-    await syncAlertBadge([ringing])
+    await alerts().add(ringing)
+
+    await refreshToolbar(newStore(), NOW)
 
     expect(await fakeBrowser.action.getBadgeText({})).toBe('!')
     expect(await fakeBrowser.action.getTitle({})).toBe('Chronly — Wake up is ringing')
   })
 
   it('clears the flag once nothing rings', async () => {
-    await syncAlertBadge([ringing])
-    await syncAlertBadge([])
+    await alerts().add(ringing)
+    await refreshToolbar(newStore(), NOW)
+    await alerts().remove('a')
+
+    await refreshToolbar(newStore(), NOW)
 
     expect(await fakeBrowser.action.getBadgeText({})).toBe('')
     expect(await fakeBrowser.action.getTitle({})).toBe('Chronly')
+  })
+
+  it('names the next alarm in the tooltip when nothing rings', async () => {
+    const store = newStore()
+    await store.upsert(createAlarm('Standup', NOW + 3_600_000, NOW))
+
+    await refreshToolbar(store, NOW)
+
+    expect(await fakeBrowser.action.getTitle({})).toMatch(/^Chronly — next alarm (today|tomorrow) .+ \(Standup\)$/)
   })
 })
 
