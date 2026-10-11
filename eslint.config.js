@@ -26,6 +26,13 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['.output/', '.wxt/', 'node_modules/'],
+    // Build scripts, Playwright specs, and tool configs run in Node.
+    files: ['scripts/**', 'e2e/**', '*.config.ts', '*.config.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
+  {
+    ignores: ['.output/', '.wxt/', 'node_modules/', 'test-results/', 'playwright-report/'],
   },
 )

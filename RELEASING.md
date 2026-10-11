@@ -13,9 +13,9 @@ store or label it stable.
 
 - [ ] Review the copy, privacy answers, reviewer notes, and asset status in
       [`docs/STORE_LISTING.md`](docs/STORE_LISTING.md).
-- [ ] Run `npm run assets:store` after changing the popup screenshots, icon, or
-      listing copy.
-- [ ] `npm run typecheck && npm run lint && npm test && npm run zip && npm run zip:firefox` all pass on the release machine.
+- [ ] After UI changes, run `npm run build && npm run screenshots` to recapture
+      `docs/assets/`, then `npm run assets:store` for the store images.
+- [ ] `npm run check && npm run zip && npm run zip:firefox` all pass on the release machine.
 - [ ] `npm run lint:firefox` reports zero Firefox artifact errors after
       `npm run zip:firefox` (the Svelte runtime may emit a non-failing generic
       `UNSAFE_VAR_ASSIGNMENT` warning).
@@ -23,18 +23,20 @@ store or label it stable.
 - [ ] `npm run test:e2e` passes against a fresh `npm run zip`. It loads
       `.output/chrome-mv3/` into a real Chromium, so it needs a display; on a
       headless machine run it as `xvfb-run -a npm run test:e2e`.
-      The current suite also verifies the alarm Test control creates Chrome's
-      `offscreen.html` audio document and that a running timer remains visible
-      after force-closing the MV3 service-worker target through DevTools.
+      The suite drives every panel, watches alarms, timers, and Pomodoro phases
+      fire through the background worker (notification, badge, and ringing
+      banner), checks Chrome's `offscreen.html` audio document, and confirms a
+      running timer survives force-closing the MV3 service-worker target.
 - [ ] Service-worker suspension: load the built (not dev-mode) Chrome extension,
       start a countdown, open `chrome://extensions`, click "service worker" to
       inspect it, then force-stop it. Reopen the popup; the countdown must
       still show the correct remaining time.
 - [ ] Chrome unpacked production smoke: load `.output/chrome-mv3/`, start a
       35-second countdown, and confirm one notification and sound. Dismiss it
-      and confirm the sound stops. Chrome exempts unpacked extensions from its
-      alarm floor, so this duration stays above the production limit instead
-      of relying on that exemption.
+      and confirm the sound stops. Repeat, and this time stop it with
+      **Dismiss** in the popup's ringing banner. Chrome exempts unpacked
+      extensions from its alarm floor, so this duration stays above the
+      production limit instead of relying on that exemption.
 - [ ] Chrome packed-install alarm floor: install a Web Store-signed candidate,
       an enterprise-installed CRX, or a local CRX on Linux. Do not use "Load
       unpacked" for this check. Start a 10-second countdown and confirm Chrome

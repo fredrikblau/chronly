@@ -8,14 +8,18 @@ async function dataUrl(path, mime = 'image/png') {
   return `data:${mime};base64,${(await readFile(new URL(path, import.meta.url))).toString('base64')}`
 }
 
-const [icon, promoIcon, clock, alarms] = await Promise.all([
+// The popup captures come from `npm run screenshots`; run that first so the
+// store images show the current UI.
+const [icon, promoIcon, clock, alarms, ringing, focus] = await Promise.all([
   dataUrl('../public/icon-128.png'),
   dataUrl('../assets/icon.svg', 'image/svg+xml'),
   dataUrl('../docs/assets/popup-screenshot.png'),
   dataUrl('../docs/assets/alarms-screenshot.png'),
+  dataUrl('../docs/assets/ringing-screenshot.png'),
+  dataUrl('../docs/assets/focus-screenshot.png'),
 ])
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
 const page = await browser.newPage()
 
 async function render(filename, width, height, body) {
@@ -39,12 +43,12 @@ async function render(filename, width, height, body) {
       .social img { width: 192px; height: 192px; }
       .social h1 { margin: 0; font-size: 96px; line-height: 1; letter-spacing: -4px; }
       .social p { margin: 18px 0 0; color: #c9c3df; font-size: 30px; }
-      .listing { width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 520px; align-items: center; gap: 80px; padding: 64px 110px; }
+      .listing { width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 480px; align-items: center; gap: 80px; padding: 48px 110px; }
       .copy img { width: 74px; height: 74px; }
       .copy h1 { max-width: 560px; margin: 28px 0 18px; font-size: 58px; line-height: 1.04; letter-spacing: -2.4px; }
       .copy p { max-width: 540px; margin: 0; color: #c9c3df; font-size: 24px; line-height: 1.45; }
-      .shot { width: 520px; padding: 20px; border: 1px solid rgb(255 255 255 / 0.13); border-radius: 28px; background: rgb(255 255 255 / 0.07); box-shadow: 0 30px 80px rgb(0 0 0 / 0.45); }
-      .shot img { display: block; width: 480px; height: 520px; }
+      .shot { width: 480px; padding: 14px; border: 1px solid rgb(255 255 255 / 0.13); border-radius: 26px; background: rgb(255 255 255 / 0.07); box-shadow: 0 30px 80px rgb(0 0 0 / 0.45); }
+      .shot img { display: block; width: 100%; height: auto; border-radius: 14px; }
     </style>${body}`)
   await page.screenshot({ path: fileURLToPath(new URL(filename, outputDir)) })
 }
@@ -68,13 +72,26 @@ await render(
   'chrome-screenshot-clock.png',
   1280,
   800,
-  `<main class="listing"><section class="copy"><img src="${icon}" alt=""><h1>Your clocks, one click away</h1><p>Local time, world clocks, alarms, timers, stopwatch laps, and focus sessions.</p></section><div class="shot"><img src="${clock}" alt="Chronly clock popup"></div></main>`,
+  `<main class="listing"><section class="copy"><img src="${icon}" alt=""><h1>Everything on the clock, one click away</h1><p>See what rings next, start a timer in one click, and glance at your world clocks.</p></section><div class="shot"><img src="${clock}" alt="Chronly clock popup"></div></main>`,
 )
 await render(
   'chrome-screenshot-alarms.png',
   1280,
   800,
-  `<main class="listing"><section class="copy"><img src="${icon}" alt=""><h1>Alarms you can trust</h1><p>Repeat schedules, eight built-in tones, imported audio, snooze, and ringing that waits for dismissal.</p></section><div class="shot"><img src="${alarms}" alt="Chronly alarm controls"></div></main>`,
+  `<main class="listing"><section class="copy"><img src="${icon}" alt=""><h1>Alarms you can trust</h1><p>Repeat schedules, an on/off switch, eight built-in tones or your own audio, and ringing that waits for you.</p></section><div class="shot"><img src="${alarms}" alt="Chronly alarm controls"></div></main>`,
+)
+
+await render(
+  'chrome-screenshot-ringing.png',
+  1280,
+  800,
+  `<main class="listing"><section class="copy"><img src="${icon}" alt=""><h1>Never miss a ring</h1><p>Sound and a notification together, plus Snooze and Dismiss right in the popup, even on Firefox.</p></section><div class="shot"><img src="${ringing}" alt="Chronly ringing alarm banner"></div></main>`,
+)
+await render(
+  'chrome-screenshot-focus.png',
+  1280,
+  800,
+  `<main class="listing"><section class="copy"><img src="${icon}" alt=""><h1>Focus in rounds</h1><p>Pomodoro cycles that keep running in the background, with your sessions counted on your device.</p></section><div class="shot"><img src="${focus}" alt="Chronly Pomodoro timer"></div></main>`,
 )
 
 await browser.close()

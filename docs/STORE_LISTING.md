@@ -21,12 +21,15 @@ when product behavior, permissions, or screenshots change.
 > data on your device and uses browser alarms to keep scheduled work running
 > after you close the popup.
 >
-> - Check local time with digital and analog clock faces.
-> - Save world clocks and compare working hours across time zones.
-> - Schedule one-time or repeating alarms with built-in or imported sounds.
-> - Run multiple countdowns and a stopwatch with lap splits.
-> - Use configurable Pomodoro cycles and export sessions to your calendar.
-> - Choose light or dark themes, gradients, text size, and reduced motion.
+> - See the time, what rings next, and your running timers at a glance.
+> - Schedule one-time or repeating alarms you can switch on and off, with
+>   built-in or imported sounds.
+> - Snooze or dismiss a ringing alert from the notification or the popup.
+> - Run several countdowns at once and a stopwatch with lap splits.
+> - Save world clocks by city name and check a meeting time across zones.
+> - Use Pomodoro cycles with daily focus stats, and export to your calendar.
+> - Choose light or dark themes, gradients, accent colours, and text size.
+> - Back up your setup to a file and restore it on another browser.
 >
 > Chronly requests no host permissions. It ships without accounts, ads,
 > analytics, or remote code. You can inspect and contribute to the source at
@@ -49,12 +52,12 @@ user's signed-in browser profiles. The browser provider operates that service.
 **Remote code:** None. The package contains all executable code and bundled
 sounds.
 
-| Permission      | Dashboard justification                                                                |
-| --------------- | -------------------------------------------------------------------------------------- |
-| `alarms`        | Wake the extension to reconcile alarms, timers, and Pomodoro phases.                   |
-| `notifications` | Show a system alert when a scheduled record becomes due.                               |
-| `storage`       | Save records, stopwatch state, imported sounds, statistics, and preferences.           |
-| `offscreen`     | Let Chrome play alert audio because Manifest V3 service workers have no audio context. |
+| Permission      | Dashboard justification                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `alarms`        | Wake the extension to reconcile alarms, timers, and Pomodoro phases.                        |
+| `notifications` | Show a system alert when a scheduled record becomes due.                                    |
+| `storage`       | Save records, stopwatch state, imported sounds, statistics, preferences, and ringing state. |
+| `offscreen`     | Let Chrome play alert audio because Manifest V3 service workers have no audio context.      |
 
 The extension requests no host permissions.
 
@@ -62,7 +65,9 @@ The extension requests no host permissions.
 
 1. Open Chronly from the toolbar and confirm the live clock appears.
 2. Open Alarms, create an alarm, then use **Test** to play its selected sound.
-3. Open Timers, start a countdown, close the popup, and reopen it to confirm the timer continues.
+3. On the Clock tab, choose **1m** under Quick timer and close the popup. After
+   a minute a notification and sound arrive; reopen the popup and press
+   **Dismiss** in the red banner to stop the sound.
 4. Open Stopwatch, start it, close the popup, and confirm it resumes from stored state.
 5. Open Settings and switch themes or choose a gradient.
 
@@ -73,18 +78,20 @@ the Chrome-only `offscreen` permission and plays audio from its background page.
 
 Run `npm run assets:store` to rebuild the generated images.
 
-| Asset            | File                                             | Size     |
-| ---------------- | ------------------------------------------------ | -------- |
-| Store icon       | `public/icon-128.png`                            | 128×128  |
-| Clock screenshot | `docs/store-assets/chrome-screenshot-clock.png`  | 1280×800 |
-| Alarm screenshot | `docs/store-assets/chrome-screenshot-alarms.png` | 1280×800 |
-| Small promo tile | `docs/store-assets/chrome-promo-small.png`       | 440×280  |
-| Marquee promo    | `docs/store-assets/chrome-promo-marquee.png`     | 1400×560 |
-| GitHub preview   | `docs/store-assets/github-social-preview.png`    | 1280×640 |
+| Asset              | File                                              | Size     |
+| ------------------ | ------------------------------------------------- | -------- |
+| Store icon         | `public/icon-128.png`                             | 128×128  |
+| Clock screenshot   | `docs/store-assets/chrome-screenshot-clock.png`   | 1280×800 |
+| Alarm screenshot   | `docs/store-assets/chrome-screenshot-alarms.png`  | 1280×800 |
+| Ringing screenshot | `docs/store-assets/chrome-screenshot-ringing.png` | 1280×800 |
+| Focus screenshot   | `docs/store-assets/chrome-screenshot-focus.png`   | 1280×800 |
+| Small promo tile   | `docs/store-assets/chrome-promo-small.png`        | 440×280  |
+| Marquee promo      | `docs/store-assets/chrome-promo-marquee.png`      | 1400×560 |
+| GitHub preview     | `docs/store-assets/github-social-preview.png`     | 1280×640 |
 
-The screenshots embed current popup captures. Update
-`docs/assets/popup-screenshot.png` and `docs/assets/alarms-screenshot.png`
-before regeneration when the UI changes.
+The screenshots embed the popup captures in `docs/assets/`. When the UI
+changes, run `npm run build && npm run screenshots` first to recapture them from
+the real extension, then `npm run assets:store`.
 
 Repository admins upload `github-social-preview.png` from **Settings → General
 → Social preview**.

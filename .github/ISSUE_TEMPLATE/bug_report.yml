@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in Chronly is not working the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report this. The more precisely we can reproduce it, the faster it gets fixed.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include what you expected instead. A screenshot of the popup helps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Alarms
+        2. Add a one-off alarm for two minutes from now
+        3. Close the popup and wait
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Firefox
+        - Edge
+        - Brave
+        - Other Chromium browser
+    validations:
+      required: true
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser and OS version
+      placeholder: Chrome 140 on macOS 15
+    validations:
+      required: true
+  - type: input
+    id: chronly-version
+    attributes:
+      label: Chronly version
+      description: Shown under Settings → About, or the commit if you built from source.
+      placeholder: 0.1.0
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Alarms
+        - Timers
+        - Stopwatch
+        - World clocks
+        - Focus (Pomodoro)
+        - Sounds and notifications
+        - Appearance and settings
+        - Backup
+        - Other

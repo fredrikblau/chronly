@@ -1,0 +1,39 @@
+name: Browser test report
+description: You tried a Chronly build on your setup. Tell us how it went, even if everything worked.
+labels: [testing]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports from real browsers and operating systems are the most useful contribution you can make before a store release. Load a [release build](https://github.com/fredrikblau/chronly/releases), try what you can, and fill in the rest.
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      placeholder: v0.1.0-rc.10, or a commit
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Browser and OS
+      placeholder: Firefox 143 on Ubuntu 24.04
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: What worked?
+      description: Tick what you checked and it worked. Leave the rest unticked and describe it below.
+      options:
+        - label: A one-off alarm rang with sound and a notification
+        - label: Snooze and Dismiss stopped the sound (notification or popup)
+        - label: A timer finished after the popup was closed
+        - label: An alarm rang after the computer had been asleep past its time
+        - label: Records and settings survived a browser restart
+        - label: The stopwatch kept running with the popup closed
+        - label: A Pomodoro phase advanced on its own
+  - type: textarea
+    id: notes
+    attributes:
+      label: What didn't work, or felt off?
