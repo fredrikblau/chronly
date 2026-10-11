@@ -43,6 +43,17 @@ async function render(filename, width, height, body) {
       .social img { width: 192px; height: 192px; }
       .social h1 { margin: 0; font-size: 96px; line-height: 1; letter-spacing: -4px; }
       .social p { margin: 18px 0 0; color: #c9c3df; font-size: 30px; }
+      .og { width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 470px; align-items: center; gap: 40px; padding: 0 72px 0 88px; overflow: hidden; }
+      .og .brand { display: flex; align-items: center; gap: 22px; }
+      .og .brand img { width: 92px; height: 92px; }
+      .og h1 { margin: 0; font-size: 84px; line-height: 1; letter-spacing: -3.5px; }
+      .og .lede { max-width: 600px; margin: 30px 0 0; color: #d6d0ec; font-size: 33px; line-height: 1.3; letter-spacing: -0.4px; }
+      .og .pills { display: flex; gap: 12px; margin: 34px 0 0; padding: 0; list-style: none; }
+      .og .pills li { padding: 9px 18px; border: 1px solid rgb(255 255 255 / 0.18); border-radius: 999px; background: rgb(255 255 255 / 0.06); color: #ece8fb; font-size: 21px; }
+      .og .stack { position: relative; height: 640px; }
+      .og .stack img { position: absolute; width: 330px; border: 1px solid rgb(255 255 255 / 0.14); border-radius: 22px; box-shadow: 0 30px 80px rgb(0 0 0 / 0.55); }
+      .og .back { top: 64px; left: 120px; transform: rotate(5deg); opacity: 0.9; }
+      .og .front { top: 96px; left: 0; transform: rotate(-3deg); }
       .listing { width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 480px; align-items: center; gap: 80px; padding: 48px 110px; }
       .copy img { width: 74px; height: 74px; }
       .copy h1 { max-width: 560px; margin: 28px 0 18px; font-size: 58px; line-height: 1.04; letter-spacing: -2.4px; }
@@ -62,11 +73,23 @@ await render(
   `<main class="promo small"><img src="${promoIcon}" alt="Chronly"></main>`,
 )
 await render('chrome-promo-marquee.png', 1400, 560, `<main class="promo"><img src="${promoIcon}" alt="Chronly"></main>`)
+// GitHub crops nothing but shows this small in feeds, so the copy is short and
+// the popup does the talking.
 await render(
   'github-social-preview.png',
   1280,
   640,
-  `<main class="social"><img src="${promoIcon}" alt=""><section><h1>Chronly</h1><p>Private time tools for Chrome and Firefox</p></section></main>`,
+  `<main class="og">
+     <section>
+       <div class="brand"><img src="${promoIcon}" alt=""><h1>Chronly</h1></div>
+       <p class="lede">Alarms, timers, and focus sessions in your browser that never miss a ring.</p>
+       <ul class="pills"><li>Chrome &amp; Firefox</li><li>Open source</li><li>No tracking</li></ul>
+     </section>
+     <div class="stack">
+       <img class="back" src="${focus}" alt="">
+       <img class="front" src="${ringing}" alt="">
+     </div>
+   </main>`,
 )
 await render(
   'chrome-screenshot-clock.png',
