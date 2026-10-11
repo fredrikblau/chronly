@@ -52,7 +52,9 @@ test('switches tabs with number keys and arrow keys, and remembers the last one'
   await page.getByRole('tab', { name: 'World' }).focus()
   await page.keyboard.press('ArrowRight')
   await expect(page.getByRole('tab', { name: 'Focus' })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('tab', { name: 'Focus' })).toBeFocused()
+  // Asserted on activeElement rather than toBeFocused(): parallel headed
+  // browsers share one display, so the OS window may not have focus.
+  await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('tab-focus')
 
   await page.close()
   const reopened = await openPopup(context, extensionId)

@@ -425,7 +425,7 @@
     position: absolute;
     top: 50%;
     right: 0.6rem;
-    color: var(--fg-faint);
+    color: var(--fg-muted);
     font-size: 0.7rem;
     pointer-events: none;
     transform: translateY(-50%);

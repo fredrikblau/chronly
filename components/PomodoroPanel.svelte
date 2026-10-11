@@ -620,7 +620,6 @@
     font-size: 0.64rem;
     font-weight: 400;
     font-variant-numeric: tabular-nums;
-    opacity: 0.75;
   }
 
   .chip[aria-pressed='true'] {

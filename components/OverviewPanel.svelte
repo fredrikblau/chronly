@@ -393,7 +393,7 @@
   }
 
   .zone-diff {
-    color: var(--fg-faint);
+    color: var(--fg-muted);
     font-size: 0.68rem;
   }
 </style>

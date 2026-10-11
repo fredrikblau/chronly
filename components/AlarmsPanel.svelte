@@ -429,7 +429,7 @@
 
   .alarm.off .clock,
   .alarm.off .label {
-    color: var(--fg-faint);
+    color: var(--fg-muted);
   }
 
   .detail {

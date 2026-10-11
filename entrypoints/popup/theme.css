@@ -12,6 +12,7 @@
 .app {
   --fg: #f5f5f7;
   --fg-muted: rgb(245 245 247 / 0.64);
+  /* Below 4.5:1 on the surface: for decoration (ticks, empty bars), never text. */
   --fg-faint: rgb(245 245 247 / 0.38);
   --tint: rgb(255 255 255 / 0.045);
   --tint-strong: rgb(255 255 255 / 0.1);
@@ -29,9 +30,10 @@
   --phase-short: #4ec9b0;
   --phase-long: #5aa9f7;
   /* The accent is chosen freely and is often a mid-tone. As a fill it is fine;
-     set in type it has to clear the surface it is printed on, so text takes
-     this instead. */
-  --accent-ink: var(--accent, #8b7cf6);
+     set in type it has to clear the surface it is printed on, including its
+     own soft tint, so text takes this instead: the same hue carried towards
+     the ink until it clears 4.5:1. */
+  --accent-ink: color-mix(in srgb, var(--accent, #8b7cf6) 70%, #f5f5f7);
   --accent-soft: color-mix(in srgb, var(--accent, #8b7cf6) 18%, transparent);
 
   --radius-sm: 0.5rem;
@@ -266,7 +268,7 @@
 }
 
 .app .input::placeholder {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .app .input:focus-visible {
