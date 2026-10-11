@@ -7,11 +7,17 @@ import {
   effectiveDueTime,
   createCountdown,
   createPomodoro,
+  disableAlarm,
+  editAlarm,
+  enableAlarm,
+  extendCountdown,
+  isAlarmArmed,
   isDue,
   markNotified,
   pauseRecord,
   reconcileFiredRecord,
   resumeRecord,
+  skipPomodoroPhase,
   snoozeAlarm,
 } from './scheduler'
 import type { AlarmRecord, PomodoroConfig, PomodoroRecord } from './types'
@@ -156,5 +162,126 @@ describe('effectiveDueTime', () => {
     delete (legacy as { snoozedUntil?: number | null }).snoozedUntil
     expect(effectiveDueTime(legacy)).toBe(NOW)
     expect(isDue(legacy, NOW + 1)).toBe(true)
+  })
+})
+
+// 2026-02-02 is a Monday in local time.
+const MONDAY_8AM = new Date(2026, 1, 2, 8, 0).getTime()
+
+describe('alarm on/off switch', () => {
+  it('never fires a switched-off alarm', () => {
+    const alarm = disableAlarm(createAlarm('Wake up', NOW, NOW), NOW)
+    expect(isDue(alarm, NOW + 1)).toBe(false)
+  })
+
+  it('treats an alarm saved before the switch existed as on', () => {
+    const legacy: AlarmRecord = { ...createAlarm('Wake up', NOW, NOW), enabled: undefined }
+    expect(isDue(legacy, NOW + 1)).toBe(true)
+    expect(isAlarmArmed(legacy)).toBe(true)
+  })
+
+  it('reads a one-off alarm as off once it has rung, without touching its switch', () => {
+    const fired = reconcileFiredRecord(createAlarm('Wake up', NOW, NOW), NOW + 1) as AlarmRecord
+    // The background silences a ring when `enabled` flips, so firing must not.
+    expect(fired.enabled).toBe(true)
+    expect(isAlarmArmed(fired)).toBe(false)
+  })
+
+  it('counts a rung legacy one-off alarm as spent', () => {
+    const legacy: AlarmRecord = { ...createAlarm('Wake up', NOW, NOW), notified: true, enabled: undefined }
+    expect(isAlarmArmed(legacy)).toBe(false)
+  })
+
+  it('keeps a recurring alarm on after it rings', () => {
+    const alarm = createAlarm('Standup', MONDAY_8AM, MONDAY_8AM, { days: [1, 2, 3, 4, 5] })
+    const fired = reconcileFiredRecord(alarm, MONDAY_8AM + 1) as AlarmRecord
+    expect(isAlarmArmed(fired)).toBe(true)
+  })
+
+  it('re-arms a rung one-off alarm for the next time its clock time comes round', () => {
+    const rung = reconcileFiredRecord(createAlarm('Wake up', MONDAY_8AM, MONDAY_8AM), MONDAY_8AM + 1) as AlarmRecord
+    const armed = enableAlarm(rung, MONDAY_8AM + 60_000)
+    expect(armed).toMatchObject({ enabled: true, notified: false, snoozedUntil: null })
+    expect(armed.targetTimestamp).toBe(new Date(2026, 1, 3, 8, 0).getTime())
+  })
+
+  it('re-arms a recurring alarm on its next selected day, not a stale past one', () => {
+    const friday = new Date(2026, 1, 6, 7, 0).getTime()
+    const alarm = disableAlarm(createAlarm('Gym', new Date(2026, 1, 2, 7, 0).getTime(), NOW, { days: [1] }), NOW)
+    const armed = enableAlarm(alarm, friday)
+    expect(new Date(armed.targetTimestamp)).toEqual(new Date(2026, 1, 9, 7, 0))
+  })
+
+  it('drops a pending snooze when switched off', () => {
+    const snoozed = snoozeAlarm(createAlarm('Wake up', NOW, NOW), NOW)
+    expect(disableAlarm(snoozed, NOW).snoozedUntil).toBeNull()
+  })
+})
+
+describe('editAlarm', () => {
+  it('keeps the identity and reschedules from the new time', () => {
+    const alarm = createAlarm('Wake up', MONDAY_8AM, MONDAY_8AM)
+    const edited = editAlarm(
+      alarm,
+      { label: 'Gym', hour: 18, minute: 30, days: [3, 1], soundId: 'gentle', volume: 0.4 },
+      MONDAY_8AM,
+    )
+    expect(edited).toMatchObject({
+      id: alarm.id,
+      createdAt: alarm.createdAt,
+      label: 'Gym',
+      soundId: 'gentle',
+      volume: 0.4,
+      recurrence: { days: [1, 3] },
+      enabled: true,
+      notified: false,
+    })
+    expect(new Date(edited.targetTimestamp)).toEqual(new Date(2026, 1, 2, 18, 30))
+  })
+
+  it('turns an emptied day list into a one-off alarm', () => {
+    const alarm = createAlarm('Gym', MONDAY_8AM, MONDAY_8AM, { days: [1] })
+    const edited = editAlarm(
+      alarm,
+      { label: 'Gym', hour: 9, minute: 0, days: [], soundId: 'default', volume: 1 },
+      MONDAY_8AM,
+    )
+    expect(edited.recurrence).toBeNull()
+  })
+})
+
+describe('extendCountdown', () => {
+  it('pushes a running timer back without moving its progress', () => {
+    const timer = createCountdown('Tea', 120_000, NOW)
+    const extended = extendCountdown(timer, 60_000, NOW + 60_000)
+    expect(extended.targetTimestamp).toBe(NOW + 180_000)
+    expect(extended.durationMs).toBe(180_000)
+  })
+
+  it('adds to the banked remainder of a paused timer', () => {
+    const paused = pauseRecord(createCountdown('Tea', 120_000, NOW), NOW + 30_000)
+    const extended = extendCountdown(paused, 60_000, NOW + 40_000)
+    expect(extended).toMatchObject({ status: 'paused', remainingMsAtPause: 150_000 })
+  })
+
+  it('restarts a finished timer from the extra time', () => {
+    const done = reconcileFiredRecord(createCountdown('Tea', 1000, NOW), NOW + 1000)
+    const extended = extendCountdown(done as ReturnType<typeof createCountdown>, 60_000, NOW + 5000)
+    expect(extended).toMatchObject({ status: 'running', notified: false, targetTimestamp: NOW + 65_000 })
+  })
+})
+
+describe('skipPomodoroPhase', () => {
+  const config: PomodoroConfig = { focusMs: 1000, shortBreakMs: 500, longBreakMs: 2000, cyclesBeforeLongBreak: 2 }
+
+  it('moves a running focus phase straight into its break', () => {
+    const skipped = skipPomodoroPhase(createPomodoro('Work', config, NOW), NOW + 100)
+    expect(skipped).toMatchObject({ phase: 'shortBreak', status: 'running', targetTimestamp: NOW + 600 })
+  })
+
+  it('keeps a paused session paused at the start of the next phase', () => {
+    const paused = pauseRecord(createPomodoro('Work', config, NOW), NOW + 100)
+    const skipped = skipPomodoroPhase(paused, NOW + 200)
+    expect(skipped).toMatchObject({ phase: 'shortBreak', status: 'paused', remainingMsAtPause: 500 })
   })
 })

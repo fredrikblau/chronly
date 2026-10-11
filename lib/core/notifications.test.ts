@@ -2,7 +2,11 @@ import { fakeBrowser } from '@webext-core/fake-browser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAlarm, createCountdown, createPomodoro } from './scheduler'
 import {
+  ALERT_ACTION_LABELS,
   buildNotificationSpec,
+  NOTIFICATION_ACTIONS,
+  notificationIdFor,
+  parseNotificationId,
   showNotification,
   toPlatformNotificationOptions,
 } from './notifications'
@@ -46,12 +50,8 @@ describe('buildNotificationSpec', () => {
       cyclesBeforeLongBreak: 4,
     }
     const pomodoro = createPomodoro('Deep work', config, NOW)
-    expect(buildNotificationSpec({ ...pomodoro, phase: 'shortBreak' }).options.message).toBe(
-      'Short break complete.',
-    )
-    expect(buildNotificationSpec({ ...pomodoro, phase: 'longBreak' }).options.message).toBe(
-      'Long break complete.',
-    )
+    expect(buildNotificationSpec({ ...pomodoro, phase: 'shortBreak' }).options.message).toBe('Short break complete.')
+    expect(buildNotificationSpec({ ...pomodoro, phase: 'longBreak' }).options.message).toBe('Long break complete.')
   })
 
   it('falls back to a generic title when the record has no label', () => {
@@ -91,5 +91,32 @@ describe('showNotification', () => {
     const spec = buildNotificationSpec(alarm)
     await showNotification(spec)
     expect(create).toHaveBeenCalledWith(spec.notificationId, spec.options)
+  })
+})
+
+describe('notification ids', () => {
+  it('round-trips a record id that itself contains dashes', () => {
+    const id = notificationIdFor('countdown', 'countdown-123-4')
+    expect(parseNotificationId(id)).toEqual({ kind: 'countdown', recordId: 'countdown-123-4' })
+  })
+
+  it('rejects an id Chronly did not create', () => {
+    expect(parseNotificationId('someone-else')).toBeNull()
+  })
+})
+
+describe('notification buttons', () => {
+  it('label every action a kind offers, in button order', () => {
+    for (const kind of ['alarm', 'countdown', 'pomodoro'] as const) {
+      const record =
+        kind === 'alarm'
+          ? createAlarm('A', 0, 0)
+          : kind === 'countdown'
+            ? createCountdown('C', 1000, 0)
+            : createPomodoro('P', { focusMs: 1, shortBreakMs: 1, longBreakMs: 1, cyclesBeforeLongBreak: 1 }, 0)
+      expect(buildNotificationSpec(record).options.buttons?.map((b) => b.title)).toEqual(
+        NOTIFICATION_ACTIONS[kind].map((action) => ALERT_ACTION_LABELS[action]),
+      )
+    }
   })
 })

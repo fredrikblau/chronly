@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCountdown } from '../lib/core/scheduler'
 import { createExtensionStorageBackend, RecordStore } from '../lib/core/storage'
+import type { CountdownRecord } from '../lib/core/types'
 import { recordActions } from '../lib/ui/records'
 import CountdownPanel from './CountdownPanel.svelte'
 
@@ -138,5 +139,36 @@ describe('CountdownPanel', () => {
       expect(restarted).toMatchObject({ id: done.id, kind: 'countdown', status: 'running', notified: false })
     })
     expect(remove).not.toHaveBeenCalled()
+  })
+
+  it('adds a minute to a running timer', async () => {
+    const timer = createCountdown('Extend me', 60_000, Date.now())
+    await store().upsert(timer)
+
+    render(CountdownPanel)
+    await fireEvent.click(await screen.findByRole('button', { name: 'Add 1 minute to Extend me' }))
+
+    await waitFor(async () =>
+      expect((await store().get(timer.id)) as CountdownRecord).toMatchObject({
+        durationMs: 120_000,
+        targetTimestamp: timer.targetTimestamp + 60_000,
+      }),
+    )
+  })
+
+  it('builds a duration from hours, minutes and seconds', async () => {
+    render(CountdownPanel)
+
+    await fireEvent.input(screen.getByLabelText('Hours'), { target: { value: '1' } })
+    await fireEvent.input(screen.getByLabelText('Minutes'), { target: { value: '2' } })
+    await fireEvent.input(screen.getByLabelText('Seconds'), { target: { value: '3' } })
+    await fireEvent.input(screen.getByPlaceholderText('Label'), { target: { value: 'Long bake' } })
+    await fireEvent.click(screen.getByText('Start'))
+
+    await screen.findByText('Long bake')
+    const stored = (await store().getAll()).find(
+      (r): r is CountdownRecord => r.kind === 'countdown' && r.label === 'Long bake',
+    )
+    expect(stored?.durationMs).toBe(3_723_000)
   })
 })

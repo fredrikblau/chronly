@@ -1,3 +1,5 @@
+import { CITY_ALIASES } from './cityAliases'
+
 export function formatTimeInZone(
   date: Date,
   timeZone: string,
@@ -61,7 +63,15 @@ export function getRelativeDiffLabel(baseZone: string, targetZone: string, at: D
   const hoursLabel = `${sign}${hours}h${minutes ? minutes + 'm' : ''}`
   const dayOffset = getDayOffset(baseZone, targetZone, at)
   const dayLabel =
-    dayOffset === 0 ? 'today' : dayOffset === 1 ? 'tomorrow' : dayOffset === -1 ? 'yesterday' : dayOffset > 0 ? `${dayOffset} days ahead` : `${Math.abs(dayOffset)} days behind`
+    dayOffset === 0
+      ? 'today'
+      : dayOffset === 1
+        ? 'tomorrow'
+        : dayOffset === -1
+          ? 'yesterday'
+          : dayOffset > 0
+            ? `${dayOffset} days ahead`
+            : `${Math.abs(dayOffset)} days behind`
   return `${hoursLabel}, ${dayLabel}`
 }
 
@@ -85,4 +95,45 @@ export function zonedWallTimeToInstant(
     guess = corrected
   }
   return new Date(guess)
+}
+
+/** The readable place name inside a zone id: "America/New_York" → "New York". */
+export function cityFromZone(timeZone: string): string {
+  const tail = timeZone.split('/').pop() ?? timeZone
+  return tail.replace(/_/g, ' ')
+}
+
+function isKnownZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Turn what someone typed into a zone id: an exact id in any case
+ * ("asia/tokyo"), a city as it reads ("New York", "sao paulo"), or a major city
+ * without a zone of its own ("San Francisco"). Returns null when nothing fits.
+ */
+export function resolveTimeZone(input: string, zones: readonly string[]): string | null {
+  const typed = input.trim().replace(/\s+/g, ' ')
+  if (!typed) return null
+  const lower = typed.toLowerCase()
+  const asId = lower.replace(/ /g, '_')
+  const exact = zones.find((zone) => zone.toLowerCase() === asId)
+  if (exact) return exact
+  const alias = CITY_ALIASES[lower]
+  if (alias && isKnownZone(alias)) return alias
+  const fold = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+  const city = zones.find((zone) => fold(cityFromZone(zone)) === fold(typed))
+  if (city) return city
+  if (!isKnownZone(typed)) return null
+  // "est" and "EST" are both accepted; store the runtime's canonical spelling.
+  return new Intl.DateTimeFormat('en-US', { timeZone: typed }).resolvedOptions().timeZone
 }

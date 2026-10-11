@@ -7,7 +7,10 @@ export interface CalendarEvent {
 
 /** ICS timestamps are basic-format UTC: 20260202T070000Z. */
 function toIcsDate(date: Date): string {
-  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+  return date
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z')
 }
 
 /**

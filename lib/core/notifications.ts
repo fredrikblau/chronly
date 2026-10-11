@@ -1,6 +1,53 @@
 import { browser } from 'wxt/browser'
 import type { PomodoroRecord, SchedulableRecord } from './types'
 
+/**
+ * What a person can do about an alert that is ringing. The same actions back
+ * the notification buttons and the popup's ringing banner, so the two can never
+ * disagree about what "Dismiss" means.
+ */
+export type AlertAction = 'snooze' | 'pause' | 'dismiss'
+
+/** Notification buttons by record kind, in button-index order. */
+export const NOTIFICATION_ACTIONS: Record<SchedulableRecord['kind'], AlertAction[]> = {
+  alarm: ['snooze', 'dismiss'],
+  countdown: ['dismiss'],
+  // The next phase has already started automatically by the time the
+  // notification is shown, so pausing is the only action left worth offering.
+  pomodoro: ['pause'],
+}
+
+/** Actions the popup banner offers; it can always offer Dismiss as well. */
+export const BANNER_ACTIONS: Record<SchedulableRecord['kind'], AlertAction[]> = {
+  alarm: ['snooze', 'dismiss'],
+  countdown: ['dismiss'],
+  pomodoro: ['pause', 'dismiss'],
+}
+
+export const ALERT_ACTION_LABELS: Record<AlertAction, string> = {
+  snooze: 'Snooze 5 min',
+  pause: 'Pause',
+  dismiss: 'Dismiss',
+}
+
+export function notificationIdFor(kind: SchedulableRecord['kind'], recordId: string): string {
+  return `chronly-${kind}-${recordId}`
+}
+
+const NOTIFICATION_ID_PATTERN = /^chronly-(alarm|countdown|pomodoro)-(.+)$/
+
+export function parseNotificationId(
+  notificationId: string,
+): { kind: SchedulableRecord['kind']; recordId: string } | null {
+  const match = NOTIFICATION_ID_PATTERN.exec(notificationId)
+  if (!match) return null
+  return { kind: match[1] as SchedulableRecord['kind'], recordId: match[2]! }
+}
+
+function buttonsFor(kind: SchedulableRecord['kind']): { title: string }[] {
+  return NOTIFICATION_ACTIONS[kind].map((action) => ({ title: ALERT_ACTION_LABELS[action] }))
+}
+
 export interface NotificationOptions {
   type: 'basic'
   title: string
@@ -26,7 +73,7 @@ const POMODORO_PHASE_LABELS: Record<PomodoroRecord['phase'], string> = {
 }
 
 export function buildNotificationSpec(record: SchedulableRecord): NotificationSpec {
-  const notificationId = `chronly-${record.kind}-${record.id}`
+  const notificationId = notificationIdFor(record.kind, record.id)
 
   if (record.kind === 'alarm') {
     return {
@@ -37,7 +84,7 @@ export function buildNotificationSpec(record: SchedulableRecord): NotificationSp
         message: 'Your alarm is going off.',
         iconUrl: ICON_URL,
         requireInteraction: true,
-        buttons: [{ title: 'Snooze 5 min' }, { title: 'Dismiss' }],
+        buttons: buttonsFor('alarm'),
       },
     }
   }
@@ -51,7 +98,7 @@ export function buildNotificationSpec(record: SchedulableRecord): NotificationSp
         message: 'Your timer finished.',
         iconUrl: ICON_URL,
         requireInteraction: true,
-        buttons: [{ title: 'Dismiss' }],
+        buttons: buttonsFor('countdown'),
       },
     }
   }
@@ -65,9 +112,7 @@ export function buildNotificationSpec(record: SchedulableRecord): NotificationSp
         message: `${POMODORO_PHASE_LABELS[record.phase]} complete.`,
         iconUrl: ICON_URL,
         requireInteraction: true,
-        // The next phase has already started automatically by the time this is
-        // shown, so pausing is the only action left worth offering.
-        buttons: [{ title: 'Pause' }],
+        buttons: buttonsFor('pomodoro'),
       },
     }
   }

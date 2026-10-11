@@ -13,9 +13,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
-    // e2e/ holds Playwright specs, which match Vitest's default `*.spec.ts`
-    // include and throw as soon as they are collected. `npm run test:e2e` owns
-    // that directory.
-    exclude: [...configDefaults.exclude, 'e2e/**', '.worktrees/**'],
+    // e2e/ and scripts/screenshots/ hold Playwright specs, which match
+    // Vitest's default `*.spec.ts` include and throw as soon as they are
+    // collected. `npm run test:e2e` and `npm run screenshots` own them.
+    exclude: [...configDefaults.exclude, 'e2e/**', 'scripts/screenshots/**', '.worktrees/**'],
   },
 })

@@ -1,27 +1,26 @@
 <script lang="ts">
+  import './theme.css'
+  import AboutPanel from '../../components/AboutPanel.svelte'
   import AlarmsPanel from '../../components/AlarmsPanel.svelte'
   import BackgroundPicker from '../../components/BackgroundPicker.svelte'
-  import ClockFace from '../../components/ClockFace.svelte'
   import CountdownPanel from '../../components/CountdownPanel.svelte'
+  import Icon, { type IconName } from '../../components/Icon.svelte'
+  import OverviewPanel from '../../components/OverviewPanel.svelte'
   import PomodoroPanel from '../../components/PomodoroPanel.svelte'
+  import RingingBanner from '../../components/RingingBanner.svelte'
   import StopwatchPanel from '../../components/StopwatchPanel.svelte'
   import ThemePicker from '../../components/ThemePicker.svelte'
   import WorldClockPanel from '../../components/WorldClockPanel.svelte'
   import { createNowStore } from '../../lib/ui/now'
-  import { backgroundSurface, surfaceOf } from '../../lib/ui/palette'
+  import { resolveCanvas, SURFACE_BG, surfaceOf } from '../../lib/ui/palette'
   import { settings } from '../../lib/ui/settings'
   import { beginStorageLoad, storageLoadState } from '../../lib/ui/storageLoad'
 
   const now = createNowStore()
   beginStorageLoad()
 
-  // The plain surfaces the popup falls back to when the saved background is not
-  // one it can paint. They are the two ends of the palette below.
-  const SURFACE_BG = { dark: '#0b0b0f', light: '#f6f6f9' } as const
-
   // 'auto' is resolved here rather than by a media query because the answer is
-  // also needed in script, to decide whether the saved background can be
-  // painted under the resolved palette.
+  // also needed in script, to decide the palette a picked background needs.
   let prefersLight = $state(false)
 
   $effect(() => {
@@ -33,14 +32,13 @@
     return () => query.removeEventListener('change', onChange)
   })
 
-  const surface = $derived<'dark' | 'light'>(
+  const themeSurface = $derived<'dark' | 'light'>(
     $settings.theme === 'auto' ? (prefersLight ? 'light' : 'dark') : $settings.theme,
   )
 
-  /** Only paint a custom background when its contrast matches the palette. */
-  const canvas = $derived(
-    backgroundSurface($settings.background) === surface ? $settings.background.value : SURFACE_BG[surface],
-  )
+  const resolved = $derived(resolveCanvas($settings.background, themeSurface))
+  const surface = $derived(resolved.surface)
+  const canvas = $derived(resolved.canvas)
 
   const accent = $derived($settings.background.accentColor)
 
@@ -68,37 +66,75 @@
   })
 
   const TABS = [
-    { id: 'clock', label: 'Clock' },
-    { id: 'alarms', label: 'Alarms' },
-    { id: 'timers', label: 'Timers' },
-    { id: 'stopwatch', label: 'Stopwatch' },
-    { id: 'world', label: 'World' },
-    { id: 'focus', label: 'Focus' },
-    { id: 'settings', label: 'Settings' },
-  ] as const
+    { id: 'clock', label: 'Clock', icon: 'clock' },
+    { id: 'alarms', label: 'Alarms', icon: 'alarm' },
+    { id: 'timers', label: 'Timers', icon: 'timer' },
+    { id: 'stopwatch', label: 'Stopwatch', icon: 'stopwatch' },
+    { id: 'world', label: 'World', icon: 'globe' },
+    { id: 'focus', label: 'Focus', icon: 'focus' },
+    { id: 'settings', label: 'Settings', icon: 'settings' },
+  ] as const satisfies readonly { id: string; label: string; icon: IconName }[]
   type TabId = (typeof TABS)[number]['id']
 
-  let activeTab = $state<TabId>('clock')
+  // The last tab is a per-device convenience, so it lives in localStorage
+  // rather than synced settings. Every access is guarded: storage can be
+  // unavailable, and the popup must open regardless.
+  const LAST_TAB_KEY = 'chronly.lastTab'
 
-  const longDate = $derived(
-    new Intl.DateTimeFormat(undefined, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    }).format(new Date($now)),
-  )
+  function readLastTab(): TabId {
+    try {
+      const saved = localStorage.getItem(LAST_TAB_KEY)
+      return TABS.find((tab) => tab.id === saved)?.id ?? 'clock'
+    } catch {
+      return 'clock'
+    }
+  }
+
+  let activeTab = $state<TabId>(readLastTab())
+
+  function selectTab(id: TabId, focus = false) {
+    activeTab = id
+    try {
+      localStorage.setItem(LAST_TAB_KEY, id)
+    } catch {
+      // Remembering the tab is optional.
+    }
+    if (focus) document.getElementById(`tab-${id}`)?.focus()
+  }
 
   /** Roving arrow-key navigation, as expected of a tablist. */
   function onTabKeydown(event: KeyboardEvent, index: number) {
     const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      selectTab(TABS[event.key === 'Home' ? 0 : TABS.length - 1].id, true)
+      return
+    }
     if (delta === 0) return
     event.preventDefault()
-    const next = TABS[(index + delta + TABS.length) % TABS.length]
-    activeTab = next.id
-    const el = document.getElementById(`tab-${next.id}`)
-    el?.focus()
+    selectTab(TABS[(index + delta + TABS.length) % TABS.length].id, true)
+  }
+
+  function isTyping(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false
+    if (target.isContentEditable) return true
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
+    if (!(target instanceof HTMLInputElement)) return false
+    return !['checkbox', 'radio', 'button', 'range', 'color', 'submit'].includes(target.type)
+  }
+
+  /** 1–7 jump straight to a tab, the way numbered tabs work in a browser. */
+  function onWindowKeydown(event: KeyboardEvent) {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.repeat || isTyping(event.target)) return
+    const index = Number(event.key) - 1
+    const tab = Number.isInteger(index) ? TABS[index] : undefined
+    if (!tab || $storageLoadState !== 'ready') return
+    event.preventDefault()
+    selectTab(tab.id)
   }
 </script>
+
+<svelte:window onkeydown={onWindowKeydown} />
 
 <div
   class="app"
@@ -106,13 +142,15 @@
   data-theme={$settings.theme}
   data-surface={surface}
   style:--bg={canvas}
+  style:--bg-solid={SURFACE_BG[surface]}
   style:--accent={accent}
   style:--on-accent={onAccent}
 >
   {#if $storageLoadState === 'error'}
-    <p class="load-state error" role="alert">
-      Chronly could not load your saved data. Close and reopen the popup to try again.
-    </p>
+    <div class="load-state error" role="alert">
+      <Icon name="shield" size={28} />
+      <p>Chronly could not load your saved data. Close and reopen the popup to try again.</p>
+    </div>
   {:else}
     {#if $storageLoadState === 'loading'}
       <p class="load-state" role="status">Loading saved data…</p>
@@ -122,7 +160,7 @@
       disabled={$storageLoadState === 'loading'}
       aria-busy={$storageLoadState === 'loading'}
     >
-      <div class="tabs" role="tablist" aria-label="Chronly sections">
+      <nav class="tabs" role="tablist" aria-label="Chronly sections">
         {#each TABS as tab, index (tab.id)}
           <button
             id="tab-{tab.id}"
@@ -132,55 +170,41 @@
             class:active={activeTab === tab.id}
             aria-selected={activeTab === tab.id}
             aria-controls="panel-{tab.id}"
+            aria-keyshortcuts={String(index + 1)}
+            title={`${tab.label} (${index + 1})`}
             tabindex={activeTab === tab.id ? 0 : -1}
-            onclick={() => (activeTab = tab.id)}
+            onclick={() => selectTab(tab.id)}
             onkeydown={(event) => onTabKeydown(event, index)}
           >
-            {tab.label}
+            <Icon name={tab.icon} size={18} />
+            <span class="tab-label">{tab.label}</span>
           </button>
         {/each}
-      </div>
+      </nav>
+
+      <RingingBanner />
 
       <!--
-    Panels stay mounted and are hidden rather than removed. The stores in
-    lib/ui are module-level readables that stop tracking storage once their
-    last subscriber goes away, so unmounting on every tab switch would leave a
-    remounted panel briefly showing stale records.
-  -->
+        Panels stay mounted and are hidden rather than removed. The stores in
+        lib/ui are module-level readables that stop tracking storage once their
+        last subscriber goes away, so unmounting on every tab switch would leave
+        a remounted panel briefly showing stale records.
+      -->
       <main>
-        <div
-          id="panel-clock"
-          role="tabpanel"
-          aria-labelledby="tab-clock"
-          hidden={activeTab !== 'clock'}
-          class="clock-panel"
-        >
-          <ClockFace
-            now={$now}
-            hour12={$settings.hour12}
-            showSeconds={$settings.showSeconds}
-            mode={$settings.clockMode}
-            contrast={$settings.clockContrast}
-          />
-          <p class="date">{longDate}</p>
+        <div id="panel-clock" role="tabpanel" aria-labelledby="tab-clock" hidden={activeTab !== 'clock'}>
+          <OverviewPanel now={$now} onNavigate={(tab) => selectTab(tab)} />
         </div>
 
         <div id="panel-alarms" role="tabpanel" aria-labelledby="tab-alarms" hidden={activeTab !== 'alarms'}>
           <AlarmsPanel />
         </div>
 
-        <div
-          id="panel-timers"
-          role="tabpanel"
-          aria-labelledby="tab-timers"
-          hidden={activeTab !== 'timers'}
-          class="stacked"
-        >
+        <div id="panel-timers" role="tabpanel" aria-labelledby="tab-timers" hidden={activeTab !== 'timers'}>
           <CountdownPanel />
         </div>
 
         <div id="panel-stopwatch" role="tabpanel" aria-labelledby="tab-stopwatch" hidden={activeTab !== 'stopwatch'}>
-          <StopwatchPanel />
+          <StopwatchPanel active={activeTab === 'stopwatch'} />
         </div>
 
         <div id="panel-world" role="tabpanel" aria-labelledby="tab-world" hidden={activeTab !== 'world'}>
@@ -200,6 +224,7 @@
         >
           <ThemePicker />
           <BackgroundPicker />
+          <AboutPanel />
         </div>
       </main>
     </fieldset>
@@ -208,85 +233,33 @@
 
 <style>
   /*
-    The one place the popup's colours are declared. Every panel reads these and
-    keeps only a fallback of its own, so the accent the user picks reaches all
-    six tabs and the light palette is not something each panel can forget.
-    Dark is the product default; [data-surface='light'] below overrides it.
+    A fixed-height popup with only the panel area scrolling. Letting the whole
+    document scroll put the scrollbar inside the fixed-width body, which pushed
+    the content sideways into a horizontal scrollbar, and made the popup jump in
+    height from tab to tab. 600px is the tallest popup both browsers allow.
   */
   .app {
-    --fg: #f5f5f7;
-    --fg-muted: rgb(245 245 247 / 0.62);
-    --fg-faint: rgb(245 245 247 / 0.35);
-    --tint: rgb(255 255 255 / 0.045);
-    --tint-strong: rgb(255 255 255 / 0.1);
-    --hairline: rgb(255 255 255 / 0.1);
-    --field: rgb(0 0 0 / 0.25);
-    --chrome: rgb(11 11 15 / 0.94);
-    --danger: #fca5a5;
-    --danger-tint: rgb(248 113 113 / 0.16);
-    --success: #6ee7b7;
-    --success-tint: rgb(110 231 183 / 0.14);
-    --warn: #f0c674;
-    --warn-tint: rgb(240 198 116 / 0.14);
-    --phase-short: #4ec9b0;
-    --phase-long: #5aa9f7;
-    /* The accent is chosen freely and is often a mid-tone. As a fill it is
-       fine; set in type it has to clear the surface it is printed on, so text
-       takes this instead. */
-    --accent-ink: var(--accent, #8b7cf6);
-
     display: flex;
     flex-direction: column;
     width: 100%;
-    /* Fills the popup so the surface under a short panel is the themed one and
-       not whatever the page started as. */
-    min-height: 100vh;
+    height: min(600px, 100vh);
+    overflow: hidden;
     background: var(--bg, #0b0b0f);
+    background-attachment: fixed;
     background-size: cover;
     color: var(--fg);
-  }
-
-  /*
-    Light is not the dark palette with the text flipped: translucent white
-    washes disappear on it, and the mid-tone status colours that read on black
-    fall under 3:1 on white. Each token is picked against #f6f6f9.
-  */
-  .app[data-surface='light'] {
-    --fg: #16161a;
-    --fg-muted: rgb(22 22 26 / 0.68);
-    --fg-faint: rgb(22 22 26 / 0.45);
-    --tint: rgb(16 16 24 / 0.05);
-    --tint-strong: rgb(16 16 24 / 0.11);
-    --hairline: rgb(16 16 24 / 0.18);
-    --field: #ffffff;
-    --chrome: rgb(246 246 249 / 0.94);
-    --danger: #b3261e;
-    --danger-tint: rgb(179 38 30 / 0.12);
-    --success: #0b6b4f;
-    --success-tint: rgb(11 107 79 / 0.12);
-    --warn: #7a5200;
-    --warn-tint: rgb(122 82 0 / 0.12);
-    --phase-short: #0f7a63;
-    --phase-long: #14539f;
-    /* The default accent is a mid violet: 2.6:1 on this surface as text, and a
-       pastel one is worse. Carrying it towards the ink keeps the hue and clears
-       4.5:1. */
-    --accent-ink: color-mix(in srgb, var(--accent, #8b7cf6) 58%, #16161a);
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
   }
 
   .tabs {
-    display: flex;
-    /* The popup stays 400px wide however large the text is set, so past roughly
-       130% the six labels stop fitting on one line. Wrapping onto a second row
-       keeps them all readable; squeezing them made them overlap. */
-    flex-wrap: wrap;
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 0.125rem;
-    padding: 0.5rem 0.75rem 0;
+    padding: 0.4rem 0.5rem;
     border-bottom: 1px solid var(--hairline);
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    /* Panels scroll under the strip, so it cannot be transparent. */
     background: var(--chrome);
   }
 
@@ -295,6 +268,7 @@
     flex: 1;
     flex-direction: column;
     min-width: 0;
+    min-height: 0;
     margin: 0;
     padding: 0;
     border: 0;
@@ -311,36 +285,57 @@
   }
 
   .load-state.error {
+    display: grid;
+    justify-items: center;
+    gap: 0.75rem;
+    margin: 3rem 1.5rem;
     color: var(--danger);
   }
 
+  .load-state.error p {
+    margin: 0;
+  }
+
   .tab {
-    flex: 1;
-    appearance: none;
-    background: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    min-width: 0;
+    padding: 0.4rem 0.1rem 0.35rem;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-radius: 0.6rem;
+    background: none;
     color: var(--fg-muted);
     font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    /* Six tabs share a fixed 400px popup, so the longest label ("Settings")
-       sets the floor here — any more horizontal padding wraps the strip. */
-    padding: 0.5rem 0.125rem;
-    min-width: max-content;
-    white-space: nowrap;
     cursor: pointer;
-    border-radius: 6px 6px 0 0;
+    transition:
+      background 140ms ease,
+      color 140ms ease;
+  }
+
+  .tab-label {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.6875rem;
+    letter-spacing: -0.005em;
+    font-weight: 550;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .tab:hover {
-    color: var(--fg);
     background: var(--tint);
+    color: var(--fg);
   }
 
   .tab.active {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  .tab.active .tab-label {
     color: var(--fg);
-    border-bottom-color: var(--accent, #8b7cf6);
   }
 
   .tab:focus-visible {
@@ -350,34 +345,23 @@
 
   main {
     flex: 1;
+    min-height: 0;
     padding: 0.875rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 
-  /* Must beat the display rules on .clock-panel and .stacked below, which have
-     equal specificity and would otherwise win by source order and leave every
-     panel on screen at once. */
+  /* Must beat any display rule on a panel wrapper, which would otherwise win by
+     source order and leave every panel on screen at once. */
   [hidden] {
     display: none !important;
-  }
-
-  .clock-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 1.5rem 0 2rem;
-  }
-
-  .date {
-    margin: 0;
-    color: var(--fg-muted);
-    font-size: 0.875rem;
   }
 
   .stacked {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1.5rem;
   }
 
   /* Panels size inputs with width:100% plus their own padding and border, which
@@ -397,13 +381,14 @@
 
   :global(body) {
     margin: 0;
-    width: 480px;
-    min-height: 520px;
+    width: 460px;
+    overflow: hidden;
     background: var(--bg, #0b0b0f);
     font-family:
       system-ui,
       -apple-system,
       'Segoe UI',
+      Roboto,
       sans-serif;
   }
 

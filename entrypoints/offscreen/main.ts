@@ -1,10 +1,25 @@
 import { browser } from 'wxt/browser'
-import { isPlaySoundMessage, isSafeAudioDataUrl, isStopSoundMessage, playPresetLocally, resolveSoundPreset } from '../../lib/core/audio'
+import {
+  isPlaySoundMessage,
+  isSafeAudioDataUrl,
+  isSoundStatusMessage,
+  isStopSoundMessage,
+  playPresetLocally,
+  resolveSoundPreset,
+  type SoundStatus,
+} from '../../lib/core/audio'
 
 const active = new Map<string, { stopped: boolean }>()
 const audioElements = new Map<string, HTMLAudioElement>()
 
-browser.runtime.onMessage.addListener((message: unknown) => {
+browser.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: (status: SoundStatus) => void) => {
+  if (isSoundStatusMessage(message)) {
+    sendResponse({
+      active: [...active.keys()],
+      audible: [...audioElements].filter(([, audio]) => !audio.paused).map(([id]) => id),
+    })
+    return
+  }
   if (isStopSoundMessage(message)) {
     const playback = active.get(message.playbackId)
     if (playback) playback.stopped = true

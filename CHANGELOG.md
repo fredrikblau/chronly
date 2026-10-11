@@ -22,6 +22,23 @@ All notable changes to Chronly are documented here. The format follows
 - Alarm sounds can repeat until dismissed, with clearer sound choices and a
   dedicated, live-updating stopwatch tab.
 - The browser’s default New Tab page is preserved; Chronly does not override it.
+- Hovering the toolbar button names the next alarm ("next alarm tomorrow
+  07:00 (Wake up)"), following the 12/24-hour setting.
+- A ringing banner in the popup with Snooze, Pause, and Dismiss, and a toolbar
+  badge while anything rings, so an alert can be stopped even where the system
+  notification has no buttons (Firefox) or has been hidden.
+- Alarms have an on/off switch and can be edited in place. A one-off alarm
+  stays listed after it rings and can be switched back on.
+- The Clock tab is now an overview of what rings next, running timers, the
+  focus session, one-click quick timers, and saved world clocks.
+- Tabs have icons and number-key shortcuts, and the popup reopens on the last
+  tab used. The stopwatch answers to Space and L.
+- World clocks accept city names as people type them, including major cities
+  without a time zone of their own.
+- Timers have an hours field and +1 minute; Pomodoro has Skip, today's count,
+  and a 7-day chart.
+- Accent swatches, an About section with project links, and backup export and
+  import in Settings.
 
 ### Fixed
 
@@ -48,3 +65,22 @@ All notable changes to Chronly are documented here. The format follows
 - Deleting an alarm, timer, or Pomodoro now clears its scheduled browser alarm,
   notification, and active sound.
 - Repeated delivery of the same alert no longer starts overlapping sound loops.
+- In 12-hour mode the AM/PM marker no longer wraps under the clock.
+- Choosing a background that did not match the current theme silently did
+  nothing; a chosen background now sets a readable text palette of its own.
+- On Firefox, an alarm whose notification could not be shown (notifications
+  blocked, Do Not Disturb) or that timed out stopped ringing at once, because
+  Firefox reports every notification close as the user's. Only a click on the
+  notification or Dismiss in the popup stops a Firefox alert now.
+- A popup taller than its window no longer shows a horizontal scrollbar.
+- Secondary text and accent-coloured text meet WCAG 2.1 AA contrast in both
+  themes; an axe audit of every tab now runs in the end-to-end suite.
+- Paused timers and switched-off or spent alarms no longer keep a scheduled
+  browser wake-up.
+
+### Changed
+
+- The popup has a refreshed design built on shared theme tokens and an icon
+  set, a fixed height with only the panel area scrolling, and the end-to-end
+  suite now covers every feature in a real Chromium build. A Firefox smoke
+  suite runs the Firefox package in real Firefox in CI.

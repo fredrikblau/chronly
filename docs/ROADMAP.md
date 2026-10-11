@@ -20,10 +20,12 @@ browser-compatibility design for Chrome and Firefox.
 An opt-in site blocker would require a different permission footprint and a
 careful one-session allowlist, so it remains separate from the v1 timer.
 
-## Additional locales and saved profiles
+## Translations and saved profiles
 
-Translations and named theme/background profiles are both useful follow-ups
-once the base settings model has more real-world feedback.
+Chronly is English-only. Translations need the UI strings moved behind
+`browser.i18n` first; that groundwork is a good self-contained contribution.
+Named theme and background profiles could follow once the settings model has
+more real-world feedback.
 
 ## Full-tab alarm takeover
 
@@ -31,8 +33,14 @@ The design allows an optional takeover page for alarms, but v1 currently uses
 audio and system notifications only. A future implementation should reuse the
 existing firing path rather than create a second scheduler.
 
-## Live toolbar badge
+## Live toolbar countdown
 
-A live nearest-alarm/timer badge needs a foreground update strategy because the
-background worker intentionally wakes at a 30-second cadence. It should be
-designed before being added so the displayed countdown is not misleading.
+The toolbar badge already marks a ringing alert. A live nearest-alarm or timer
+countdown on it needs a foreground update strategy, because the background
+worker intentionally wakes at a 30-second cadence. It should be designed before
+being added so the displayed countdown is not misleading.
+
+## Drag-and-drop world clocks
+
+World clocks reorder with up and down buttons today. Drag-and-drop would be
+quicker with a mouse, as long as keyboard reordering keeps working.

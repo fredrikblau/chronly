@@ -4,6 +4,7 @@ import {
   buildStopSoundMessage,
   isPlaySoundMessage,
   isSafeAudioDataUrl,
+  isSoundStatusMessage,
   isStopSoundMessage,
   resolveSoundPreset,
   SOUND_PRESETS,
@@ -69,5 +70,13 @@ describe('isPlaySoundMessage', () => {
     ['an over-range volume', { target: 'offscreen', type: 'play-sound', soundId: 'a', volume: 1.1 }],
   ])('rejects %s', (_label, message) => {
     expect(isPlaySoundMessage(message)).toBe(false)
+  })
+})
+
+describe('isSoundStatusMessage', () => {
+  it('recognises a status request and nothing else', () => {
+    expect(isSoundStatusMessage({ target: 'offscreen', type: 'sound-status' })).toBe(true)
+    expect(isSoundStatusMessage({ target: 'offscreen', type: 'stop-sound', playbackId: 'a' })).toBe(false)
+    expect(isSoundStatusMessage(null)).toBe(false)
   })
 })

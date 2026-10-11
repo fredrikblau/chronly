@@ -13,6 +13,22 @@ signed-in profiles. Chronly does not operate that sync service and websites
 cannot read the extension storage. Chronly does not override the browser’s
 New Tab page.
 
+While something is ringing, Chronly keeps a short note of it in the browser's
+session storage so the popup can offer Snooze and Dismiss; the browser clears
+it when it closes. The popup remembers which tab you last opened in the
+extension's own `localStorage`.
+
+## Backups
+
+Export in Settings writes your alarms, world clocks, and appearance settings to
+a JSON file that your browser downloads. Import reads a file you choose. Both
+happen entirely on your device; Chronly never uploads a backup anywhere.
+
+## Links
+
+The About section links to the project's GitHub pages (source, issues, and this
+policy). They open only when you click them, like any other link.
+
 ## User-initiated calendar export
 
 Add to Calendar either opens a prefilled Google Calendar link or creates an
@@ -22,12 +38,12 @@ service or import the file yourself.
 
 ## Permissions
 
-| Permission                | Purpose                                                                                                          |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `alarms`                  | Wakes the background process so alarms, timers, and Pomodoro phases can be reconciled after suspension or sleep. |
-| `notifications`           | Shows system notifications when scheduled records are due.                                                       |
-| `storage`                 | Persists records, settings, and world-clock preferences in browser extension storage.                            |
-| `offscreen` (Chrome only) | Opens a hidden document briefly so Chrome can play an alarm tone from its background service worker.             |
+| Permission                | Purpose                                                                                                           |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `alarms`                  | Wakes the background process so alarms, timers, and Pomodoro phases can be reconciled after suspension or sleep.  |
+| `notifications`           | Shows system notifications when scheduled records are due.                                                        |
+| `storage`                 | Persists records, settings, world-clock preferences, and the list of ringing alerts in browser extension storage. |
+| `offscreen` (Chrome only) | Opens a hidden document briefly so Chrome can play an alarm tone from its background service worker.              |
 
 Chronly requests no host permissions and does not include advertising or
 tracking SDKs. Firefox does not receive the Chrome-only `offscreen` permission.

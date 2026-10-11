@@ -1,5 +1,13 @@
 import { browser } from 'wxt/browser'
-import type { CustomSound, PomodoroStats, SchedulableRecord, Settings, StopwatchState, WorldClockEntry } from './types'
+import type {
+  ActiveAlert,
+  CustomSound,
+  PomodoroStats,
+  SchedulableRecord,
+  Settings,
+  StopwatchState,
+  WorldClockEntry,
+} from './types'
 import { DEFAULT_POMODORO_STATS, DEFAULT_SETTINGS, DEFAULT_STOPWATCH } from './types'
 
 export interface StorageBackend {
@@ -33,14 +41,20 @@ export type SettingsPatch = Omit<Partial<Settings>, 'background'> & {
   background?: Partial<Settings['background']>
 }
 
+/**
+ * Run a read-modify-write under a lock shared by every extension context. The
+ * popup and the background worker are separate realms that write the same
+ * keys; Web Locks is the one primitive they share through the extension origin.
+ */
+function withLock<T>(name: string, mutation: () => Promise<T>): Promise<T> {
+  return typeof navigator === 'undefined' || !navigator.locks ? mutation() : navigator.locks.request(name, mutation)
+}
+
 export class RecordStore {
   constructor(private backend: StorageBackend) {}
 
   private mutate<T>(mutation: () => Promise<T>): Promise<T> {
-    // Popup and background realms coordinate through their shared extension origin.
-    return typeof navigator === 'undefined' || !navigator.locks
-      ? mutation()
-      : navigator.locks.request(RECORDS_KEY, mutation)
+    return withLock(RECORDS_KEY, mutation)
   }
 
   async getAll(): Promise<SchedulableRecord[]> {
@@ -189,8 +203,13 @@ export class CustomSoundStore {
   }
 }
 
-export function createExtensionStorageBackend(area: 'local' | 'sync'): StorageBackend {
-  const storageArea = browser.storage[area]
+export type StorageAreaName = 'local' | 'sync' | 'session'
+
+export function createExtensionStorageBackend(area: StorageAreaName): StorageBackend {
+  // storage.session clears itself when the browser closes. Where it is missing
+  // (older browsers) local storage stands in; callers that use it clear the key
+  // on startup themselves.
+  const storageArea = browser.storage[area] ?? browser.storage.local
   return {
     async get<T>(key: string) {
       const result = await storageArea.get(key)
@@ -205,6 +224,16 @@ export function createExtensionStorageBackend(area: 'local' | 'sync'): StorageBa
   }
 }
 
+/** Local calendar day, e.g. "2026-02-02" — the key focus stats are grouped by. */
+export function localDayKey(at: number): string {
+  const date = new Date(at)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** Enough history for a week view with room to spare, without growing forever. */
+const FOCUS_HISTORY_DAYS = 31
+
 export class PomodoroStatsStore {
   constructor(private backend: StorageBackend) {}
 
@@ -213,20 +242,69 @@ export class PomodoroStatsStore {
     return stored ?? DEFAULT_POMODORO_STATS
   }
 
-  async recordCompletedFocusSession(focusMs: number): Promise<PomodoroStats> {
-    const current = await this.get()
-    const next: PomodoroStats = {
-      totalFocusSessionsCompleted: current.totalFocusSessionsCompleted + 1,
-      totalFocusMs: current.totalFocusMs + focusMs,
-    }
-    await this.backend.set(POMODORO_STATS_KEY, next)
-    return next
+  recordCompletedFocusSession(focusMs: number, at: number = Date.now()): Promise<PomodoroStats> {
+    return withLock(POMODORO_STATS_KEY, async () => {
+      const current = await this.get()
+      const day = localDayKey(at)
+      const daily = { ...current.daily }
+      const today = daily[day] ?? { sessions: 0, focusMs: 0 }
+      daily[day] = { sessions: today.sessions + 1, focusMs: today.focusMs + focusMs }
+      const kept = Object.keys(daily).sort().slice(-FOCUS_HISTORY_DAYS)
+      const next: PomodoroStats = {
+        totalFocusSessionsCompleted: current.totalFocusSessionsCompleted + 1,
+        totalFocusMs: current.totalFocusMs + focusMs,
+        daily: Object.fromEntries(kept.map((key) => [key, daily[key]!])),
+      }
+      await this.backend.set(POMODORO_STATS_KEY, next)
+      return next
+    })
+  }
+}
+
+export const ACTIVE_ALERTS_KEY = 'activeAlerts'
+
+/**
+ * Alerts that are ringing right now, keyed by record id. Lives in session
+ * storage: a browser restart silences every sound, so nothing should survive it.
+ */
+export class ActiveAlertStore {
+  constructor(private backend: StorageBackend) {}
+
+  async getAll(): Promise<ActiveAlert[]> {
+    const map = await this.backend.get<Record<string, ActiveAlert>>(ACTIVE_ALERTS_KEY)
+    return map ? Object.values(map).sort((a, b) => a.firedAt - b.firedAt) : []
+  }
+
+  async get(recordId: string): Promise<ActiveAlert | undefined> {
+    const map = await this.backend.get<Record<string, ActiveAlert>>(ACTIVE_ALERTS_KEY)
+    return map?.[recordId]
+  }
+
+  add(alert: ActiveAlert): Promise<void> {
+    return withLock(ACTIVE_ALERTS_KEY, async () => {
+      const map = (await this.backend.get<Record<string, ActiveAlert>>(ACTIVE_ALERTS_KEY)) ?? {}
+      map[alert.recordId] = alert
+      await this.backend.set(ACTIVE_ALERTS_KEY, map)
+    })
+  }
+
+  remove(recordId: string): Promise<void> {
+    return withLock(ACTIVE_ALERTS_KEY, async () => {
+      const map = await this.backend.get<Record<string, ActiveAlert>>(ACTIVE_ALERTS_KEY)
+      if (!map?.[recordId]) return
+      delete map[recordId]
+      await this.backend.set(ACTIVE_ALERTS_KEY, map)
+    })
+  }
+
+  clear(): Promise<void> {
+    return withLock(ACTIVE_ALERTS_KEY, () => this.backend.remove(ACTIVE_ALERTS_KEY))
   }
 }
 
 export function watchStorageKey<T>(key: string, onChange: (value: T | undefined) => void): () => void {
   const listener = (changes: Record<string, { newValue?: unknown; oldValue?: unknown }>, areaName: string) => {
-    if (areaName !== 'local' && areaName !== 'sync') return
+    if (areaName !== 'local' && areaName !== 'sync' && areaName !== 'session') return
     const change = changes[key]
     if (change) onChange(change.newValue as T | undefined)
   }

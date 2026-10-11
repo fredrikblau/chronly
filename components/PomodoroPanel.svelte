@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { createPomodoro, pauseRecord, resumeRecord } from '../lib/core/scheduler'
-  import { createExtensionStorageBackend, PomodoroStatsStore, watchStorageKey } from '../lib/core/storage'
+  import { createPomodoro, pauseRecord, resumeRecord, skipPomodoroPhase } from '../lib/core/scheduler'
+  import { createExtensionStorageBackend, localDayKey, PomodoroStatsStore, watchStorageKey } from '../lib/core/storage'
   import {
     DEFAULT_POMODORO_STATS,
     type PomodoroConfig,
@@ -8,9 +8,11 @@
     type PomodoroStats,
   } from '../lib/core/types'
   import { downloadIcs, openGoogleCalendarLink } from '../lib/ui/calendarAction'
+  import { formatCountdown, formatSpent, spokenCountdown } from '../lib/ui/format'
   import { createNowStore } from '../lib/ui/now'
   import { recordActions, records } from '../lib/ui/records'
   import { loadStorage } from '../lib/ui/storageLoad'
+  import Icon from './Icon.svelte'
   import SoundPicker from './SoundPicker.svelte'
 
   interface Preset {
@@ -143,24 +145,37 @@
     return Math.max(0, record.remainingMsAtPause ?? 0)
   }
 
-  function formatRemaining(ms: number): string {
-    const totalSeconds = Math.ceil(ms / 1000)
-    return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`
+  const formatRemaining = formatCountdown
+  const spokenRemaining = spokenCountdown
+  const formatTotalFocus = formatSpent
+
+  async function skip(record: PomodoroRecord) {
+    await save(() => recordActions.upsert(skipPomodoroPhase(record, Date.now())), 'Could not skip ahead. Try again.')
   }
 
-  function spokenRemaining(ms: number): string {
-    const totalSeconds = Math.ceil(ms / 1000)
-    const m = Math.floor(totalSeconds / 60)
-    const s = totalSeconds % 60
-    return m > 0 ? `${m} min ${s} sec remaining` : `${s} sec remaining`
-  }
+  // Only changes at midnight, so the week below is rebuilt once a day rather
+  // than on every render tick.
+  const todayKey = $derived(localDayKey($now))
 
-  function formatTotalFocus(ms: number): string {
-    const totalMinutes = Math.round(ms / 60_000)
-    const hours = Math.floor(totalMinutes / 60)
-    const rest = totalMinutes % 60
-    return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`
-  }
+  /** The last seven local days, oldest first, for the week chart. */
+  const week = $derived.by(() => {
+    const [year, month, date] = todayKey.split('-').map(Number)
+    const today = new Date(year!, month! - 1, date!)
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - i), 12)
+      const entry = stats.daily?.[localDayKey(day.getTime())]
+      return {
+        key: localDayKey(day.getTime()),
+        initial: day.toLocaleDateString(undefined, { weekday: 'narrow' }),
+        name: day.toLocaleDateString(undefined, { weekday: 'long' }),
+        sessions: entry?.sessions ?? 0,
+        focusMs: entry?.focusMs ?? 0,
+      }
+    })
+  })
+  const today = $derived(week[6]!)
+  const weekMax = $derived(Math.max(1, ...week.map((day) => day.sessions)))
+  const weekTotal = $derived(week.reduce((sum, day) => sum + day.sessions, 0))
 
   /**
    * `cycleCount` counts *finished* focus sessions, so mid-focus it is still the
@@ -202,18 +217,9 @@
 </script>
 
 <section class="panel" aria-labelledby="pomodoro-heading">
-  <header class="head">
+  <header class="panel-head">
     <h2 id="pomodoro-heading">Pomodoro</h2>
-    <dl class="stats">
-      <div class="stat">
-        <dt>Sessions</dt>
-        <dd>{stats.totalFocusSessionsCompleted}</dd>
-      </div>
-      <div class="stat">
-        <dt>Focus time</dt>
-        <dd>{formatTotalFocus(stats.totalFocusMs)}</dd>
-      </div>
-    </dl>
+    <span class="panel-meta">{today.sessions} today</span>
   </header>
 
   {#if active}
@@ -223,7 +229,7 @@
     {@const perSet = Math.max(1, active.config.cyclesBeforeLongBreak)}
     {@const done = roundsDone(active)}
 
-    <div class="running" data-phase={active.phase} class:paused={active.status !== 'running'}>
+    <div class="running card" data-phase={active.phase} class:paused={active.status !== 'running'}>
       <p class="phase">{PHASE_LABELS[active.phase]}</p>
       <p class="label" title={active.label}>{active.label}</p>
 
@@ -259,40 +265,68 @@
       </div>
 
       <div class="controls">
-        <button type="button" class="primary" disabled={saving} onclick={() => void togglePause(active)}>
+        <button
+          type="button"
+          class="btn grow"
+          class:btn-primary={active.status !== 'running'}
+          class:btn-outline={active.status === 'running'}
+          disabled={saving}
+          onclick={() => void togglePause(active)}
+        >
+          <Icon name={active.status === 'running' ? 'pause' : 'play'} size={active.status === 'running' ? 15 : 12} />
           {active.status === 'running' ? 'Pause' : 'Resume'}
         </button>
-        <button type="button" class="ghost" disabled={saving} onclick={() => void stop(active)}>Stop</button>
+        <button
+          type="button"
+          class="btn"
+          disabled={saving}
+          title={active.phase === 'focus' ? 'Start the break now' : 'Start focusing now'}
+          aria-label={active.phase === 'focus' ? 'Skip to break' : 'Skip to focus'}
+          onclick={() => void skip(active)}
+        >
+          <Icon name="skip" size={14} /> Skip
+        </button>
+        <button type="button" class="btn btn-danger" disabled={saving} onclick={() => void stop(active)}>
+          <Icon name="stop" size={14} /> Stop
+        </button>
       </div>
 
       <div class="calendarRow" role="group" aria-label="Add this phase to a calendar">
         <button
           type="button"
-          class="ghost"
+          class="btn btn-quiet btn-sm"
           aria-label={`Add ${PHASE_LABELS[active.phase]} end to Google Calendar`}
           onclick={() => addToGoogleCalendar(active)}
         >
-          Google Calendar
+          <Icon name="calendar" size={13} /> Google Calendar
         </button>
         <button
           type="button"
-          class="ghost"
+          class="btn btn-quiet btn-sm"
           aria-label={`Download the .ics calendar file for ${PHASE_LABELS[active.phase]} end`}
           onclick={() => saveIcs(active)}
         >
-          Download .ics
+          <Icon name="download" size={13} /> Download .ics
         </button>
       </div>
     </div>
   {:else}
     <form
-      class="setup"
+      class="setup card"
       onsubmit={(event) => {
         event.preventDefault()
         start()
       }}
     >
-      <input class="label-input" type="text" placeholder="Label" disabled={saving} bind:value={label} />
+      <input
+        class="input label-input"
+        type="text"
+        placeholder="Label"
+        aria-label="Session label"
+        maxlength="80"
+        disabled={saving}
+        bind:value={label}
+      />
 
       <div class="presets" role="group" aria-label="Presets">
         {#each PRESETS as preset (preset.name)}
@@ -338,15 +372,64 @@
       </div>
 
       <div class="sound-field">
-        <span class="fieldLabel">Completion sound</span>
+        <span class="field-label">Completion sound</span>
         <SoundPicker bind:soundId bind:volume />
       </div>
 
-      <button type="submit" class="primary start" disabled={saving}>{saving ? 'Saving…' : 'Start'}</button>
+      <button type="submit" class="btn btn-primary btn-block" disabled={saving}>
+        {saving ? 'Saving…' : 'Start'}
+      </button>
     </form>
   {/if}
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
+
+  <section class="stats card" aria-labelledby="focus-stats-heading">
+    <h3 id="focus-stats-heading" class="section-title">Your focus</h3>
+    <dl class="tiles">
+      <div class="tile">
+        <dt>Today</dt>
+        <dd>{today.sessions}<small>{formatTotalFocus(today.focusMs)}</small></dd>
+      </div>
+      <div class="tile">
+        <dt>Sessions</dt>
+        <dd>{stats.totalFocusSessionsCompleted}</dd>
+      </div>
+      <div class="tile">
+        <dt>Focus time</dt>
+        <dd>{formatTotalFocus(stats.totalFocusMs)}</dd>
+      </div>
+    </dl>
+    <figure class="week">
+      <figcaption class="hint">Last 7 days · {weekTotal} sessions</figcaption>
+      <div class="bars" aria-hidden="true">
+        {#each week as day (day.key)}
+          <div class="bar-col" title={`${day.name}: ${day.sessions} sessions, ${formatTotalFocus(day.focusMs)}`}>
+            <div class="bar-track">
+              <div
+                class="bar"
+                class:empty={day.sessions === 0}
+                style:height={day.sessions === 0 ? '2px' : `${(day.sessions / weekMax) * 100}%`}
+              ></div>
+            </div>
+            <span class="bar-label" class:is-today={day === today}>{day.initial}</span>
+          </div>
+        {/each}
+      </div>
+      <table class="sr-only">
+        <caption>Focus sessions over the last 7 days</caption>
+        <thead
+          ><tr><th scope="col">Day</th><th scope="col">Completed sessions</th><th scope="col">Time focused</th></tr
+          ></thead
+        >
+        <tbody>
+          {#each week as day (day.key)}
+            <tr><th scope="row">{day.name}</th><td>{day.sessions}</td><td>{formatTotalFocus(day.focusMs)}</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </figure>
+  </section>
 </section>
 
 <style>
@@ -365,55 +448,14 @@
     font-family: inherit;
   }
 
-  .head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .stats {
-    display: flex;
-    gap: 0.9rem;
-    margin: 0;
-  }
-
-  .stat {
-    display: flex;
-    align-items: baseline;
-    gap: 0.3rem;
-  }
-
-  .stats dt {
-    font-size: 0.68rem;
-    color: var(--muted);
-  }
-
-  .stats dd {
-    margin: 0;
-    font-size: 0.78rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
   /* Running view */
   .running {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.55rem;
-    padding: 1rem 0.75rem 0.9rem;
-    border: 1px solid var(--line);
-    border-radius: 1rem;
+    padding: 1rem 0.85rem 0.75rem;
+    border-radius: var(--radius-lg, 1rem);
     background:
       radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--phase) 14%, transparent), transparent 70%),
       var(--surface);
@@ -531,7 +573,7 @@
     margin-top: 0.2rem;
   }
 
-  .controls button {
+  .grow {
     flex: 1;
   }
 
@@ -541,36 +583,16 @@
     width: 100%;
   }
 
-  .calendarRow button {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 0.38rem 0.5rem;
-    overflow: hidden;
-    font-size: 0.72rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .calendarRow {
+    justify-content: center;
   }
 
   /* Setup view */
   .setup {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .label-input {
-    width: 100%;
-    padding: 0.5rem 0.65rem;
-    border: 1px solid var(--line);
-    border-radius: 0.6rem;
-    background: var(--surface);
-    color: inherit;
-    font: inherit;
-    font-size: 0.88rem;
-  }
-
-  .label-input::placeholder {
-    color: var(--muted);
+    gap: 0.65rem;
+    padding: 0.85rem;
   }
 
   .presets {
@@ -598,7 +620,6 @@
     font-size: 0.64rem;
     font-weight: 400;
     font-variant-numeric: tabular-nums;
-    opacity: 0.75;
   }
 
   .chip[aria-pressed='true'] {
@@ -630,8 +651,11 @@
     white-space: nowrap;
   }
 
-  .sound-field { width: 100%; }
-  .sound-field > .fieldLabel { display: block; margin-bottom: 0.35rem; font-size: 0.72rem; color: var(--muted); }
+  .sound-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
 
   .field input {
     width: 2.6rem;
@@ -651,60 +675,99 @@
     white-space: nowrap;
   }
 
-  /* Buttons */
-  button {
-    cursor: pointer;
+  /* Stats */
+  .stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.8rem 0.85rem;
   }
 
-  .primary,
-  .ghost {
-    padding: 0.5rem 0.9rem;
-    border-radius: 0.6rem;
-    font: inherit;
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-
-  .primary {
-    border: none;
-    background: var(--accent, #8b7cf6);
-    color: var(--on-accent, #0b0b0f);
-  }
-
-  .ghost {
-    border: 1px solid var(--line);
-    background: transparent;
-    color: var(--muted);
-  }
-
-  .start {
-    width: 100%;
-    margin-top: 0.1rem;
-  }
-
-  button:hover {
-    filter: brightness(1.12);
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .error {
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
     margin: 0;
-    color: var(--danger, #fca5a5);
-    font-size: 0.72rem;
   }
 
-  .ghost:hover {
+  .tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .tile dt {
+    color: var(--muted);
+    font-size: 0.7rem;
+  }
+
+  .tile dd {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tile small {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 400;
+  }
+
+  .week {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+  }
+
+  .bars {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.4rem;
+    height: 4.25rem;
+  }
+
+  .bar-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 0;
+  }
+
+  .bar-track {
+    display: flex;
+    flex: 1;
+    align-items: flex-end;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* Rounded at the data end only, anchored flat on the baseline. */
+  .bar {
+    width: min(100%, 1.1rem);
+    border-radius: 4px 4px 0 0;
+    background: var(--accent, #8b7cf6);
+  }
+
+  .bar.empty {
+    background: var(--fg-faint, rgba(245, 245, 247, 0.38));
+  }
+
+  .bar-label {
+    color: var(--muted);
+    font-size: 0.65rem;
+  }
+
+  .bar-label.is-today {
     color: var(--fg, #f5f5f7);
-    border-color: color-mix(in srgb, var(--fg, #f5f5f7) 30%, transparent);
-  }
-
-  :where(button, input):focus-visible {
-    outline: 2px solid var(--accent, #8b7cf6);
-    outline-offset: 2px;
+    font-weight: 700;
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -16,7 +16,10 @@ function seedStore() {
 
 /** The basic-format UTC stamp both the Google link and the .ics file use. */
 function toIcsDate(timestamp: number): string {
-  return new Date(timestamp).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+  return new Date(timestamp)
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z')
 }
 
 function onlyAlarm(stored: SchedulableRecord[]): AlarmRecord {
@@ -233,5 +236,81 @@ describe('AlarmsPanel', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Test' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not show the alarm preview')
+  })
+
+  it('switches an alarm off and back on from its row', async () => {
+    const store = seedStore()
+    const alarm = createAlarm('Switchable', new Date(2026, 1, 2, 7, 0).getTime(), MONDAY_6AM)
+    await store.upsert(alarm)
+
+    render(AlarmsPanel)
+    const toggle = await screen.findByRole('switch', { name: 'Switchable alarm' })
+    expect(toggle).toBeChecked()
+
+    await fireEvent.click(toggle)
+    await waitFor(async () => expect(await store.get(alarm.id)).toMatchObject({ enabled: false }))
+    expect(await screen.findByText('Off')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('switch', { name: 'Switchable alarm' }))
+    await waitFor(async () => expect(await store.get(alarm.id)).toMatchObject({ enabled: true, notified: false }))
+    // Switching back on re-derives the next ring from now, never a stale target.
+    const rearmed = (await store.get(alarm.id)) as AlarmRecord
+    expect(rearmed.targetTimestamp).toBeGreaterThan(Date.now())
+  })
+
+  it('shows a rung one-off alarm as switched off', async () => {
+    await seedStore().upsert({ ...createAlarm('Spent', MONDAY_6AM, MONDAY_6AM), notified: true, enabled: false })
+
+    render(AlarmsPanel)
+
+    expect(await screen.findByRole('switch', { name: 'Spent alarm' })).not.toBeChecked()
+    expect(screen.getByText('Rang · off')).toBeInTheDocument()
+  })
+
+  it('edits an alarm in place, keeping its identity', async () => {
+    const store = seedStore()
+    const alarm = createAlarm('Editable', new Date(2026, 1, 2, 7, 0).getTime(), MONDAY_6AM)
+    await store.upsert(alarm)
+
+    render(AlarmsPanel)
+    await fireEvent.click(await screen.findByRole('button', { name: 'Edit alarm Editable' }))
+
+    expect(screen.getByLabelText('Time')).toHaveValue('07:00')
+    expect(screen.getByPlaceholderText('Label')).toHaveValue('Editable')
+    await fireEvent.input(screen.getByPlaceholderText('Label'), { target: { value: 'Edited' } })
+    await fireEvent.input(screen.getByLabelText('Time'), { target: { value: '08:15' } })
+    await fireEvent.click(screen.getByRole('button', { name: 'Friday' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    expect(await screen.findByText('Edited')).toBeInTheDocument()
+    const stored = onlyAlarm(await store.getAll())
+    expect(stored.id).toBe(alarm.id)
+    expect(stored.recurrence).toEqual({ days: [5] })
+    expect(new Date(stored.targetTimestamp).getHours()).toBe(8)
+    // The form returns to creating a new alarm.
+    expect(await screen.findByRole('button', { name: 'Add alarm' })).toBeInTheDocument()
+  })
+
+  it('cancels an edit without saving', async () => {
+    const store = seedStore()
+    await store.upsert(createAlarm('Untouched', new Date(2026, 1, 2, 7, 0).getTime(), MONDAY_6AM))
+
+    render(AlarmsPanel)
+    await fireEvent.click(await screen.findByRole('button', { name: 'Edit alarm Untouched' }))
+    await fireEvent.input(screen.getByPlaceholderText('Label'), { target: { value: 'Changed' } })
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.getByPlaceholderText('Label')).toHaveValue('')
+    expect(onlyAlarm(await store.getAll()).label).toBe('Untouched')
+  })
+
+  it('fills the repeat days from a preset', async () => {
+    render(AlarmsPanel)
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Weekdays' }))
+
+    expect(screen.getByRole('button', { name: 'Monday' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Friday' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Sunday' })).toHaveAttribute('aria-pressed', 'false')
   })
 })

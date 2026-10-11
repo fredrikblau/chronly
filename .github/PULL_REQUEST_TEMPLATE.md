@@ -4,8 +4,14 @@
 
 Fixes #
 
+## How did you check it?
+
+<!-- Commands you ran, browsers you tried, screenshots for visual changes. -->
+
 ## Checklist
 
-- [ ] `npm run typecheck`, `npm run lint`, and `npm test` pass locally
-- [ ] Tests were added or updated for behavior changes
-- [ ] Documentation was updated if setup or user-facing behavior changed
+- [ ] `npm run check` passes (typecheck, lint, format, unit tests)
+- [ ] `npm run test:e2e` passes, if this changes extension wiring or a user flow
+- [ ] Tests were added or updated for behaviour changes
+- [ ] Docs or screenshots were updated if user-facing behaviour changed (`npm run screenshots`)
+- [ ] No new permissions, telemetry, or remote code (or this is discussed in the linked issue)

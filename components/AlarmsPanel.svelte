@@ -1,7 +1,15 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { playAlarmSound, SOUND_PRESETS } from '../lib/core/audio'
   import { buildNotificationSpec, showNotification } from '../lib/core/notifications'
-  import { createAlarm, effectiveDueTime } from '../lib/core/scheduler'
+  import {
+    createAlarm,
+    disableAlarm,
+    editAlarm,
+    effectiveDueTime,
+    enableAlarm,
+    isAlarmArmed,
+  } from '../lib/core/scheduler'
   import type { AlarmRecord } from '../lib/core/types'
   import {
     DAY_LABELS,
@@ -15,31 +23,44 @@
   import { createNowStore } from '../lib/ui/now'
   import { records, recordActions } from '../lib/ui/records'
   import { settings } from '../lib/ui/settings'
+  import Icon from './Icon.svelte'
   import SoundPicker from './SoundPicker.svelte'
 
   // Only the relative "rings in ..." captions depend on this, and they are
   // minute-grained — a fast tick would be pure re-render cost.
   const now = createNowStore(15_000)
 
+  const DEFAULT_TIME = '07:00'
+  const DAY_PRESETS = [
+    { label: 'Weekdays', days: [1, 2, 3, 4, 5] },
+    { label: 'Weekends', days: [0, 6] },
+    { label: 'Every day', days: [0, 1, 2, 3, 4, 5, 6] },
+  ]
+
   let label = $state('')
-  let time = $state('07:00')
+  let time = $state(DEFAULT_TIME)
   let selectedDays = $state<number[]>([])
   let soundId = $state(SOUND_PRESETS[0].id)
   let volume = $state(0.8)
   let error = $state<string | null>(null)
   let saving = $state(false)
+  /** The alarm being edited, or null while the form creates a new one. */
+  let editingId = $state<string | null>(null)
+  let timeInput = $state<HTMLInputElement>()
 
   const alarms = $derived(
     ($records ?? [])
       .filter((r): r is AlarmRecord => r.kind === 'alarm')
-      .sort((a, b) => effectiveDueTime(a) - effectiveDueTime(b)),
+      .sort((a, b) => Number(isAlarmArmed(b)) - Number(isAlarmArmed(a)) || effectiveDueTime(a) - effectiveDueTime(b)),
   )
+  const armedCount = $derived(alarms.filter(isAlarmArmed).length)
+  const editing = $derived(alarms.find((alarm) => alarm.id === editingId))
 
   const parsedTime = $derived.by(() => {
     const [hourStr, minuteStr] = time.split(':')
     const hour = Number(hourStr)
     const minute = Number(minuteStr)
-    return Number.isFinite(hour) && Number.isFinite(minute) ? { hour, minute } : null
+    return time && Number.isFinite(hour) && Number.isFinite(minute) ? { hour, minute } : null
   })
 
   const sortedDays = $derived([...selectedDays].sort((a, b) => a - b))
@@ -47,11 +68,16 @@
   const previewCaption = $derived.by(() => {
     if (!parsedTime) return 'Enter a time'
     const target = nextOccurrence(parsedTime.hour, parsedTime.minute, $now, sortedDays)
-    return `Rings ${describeTimeUntil(target, $now)}`
+    return `Rings ${describeTimeUntil(target, $now)} · ${describeRecurrence(sortedDays.length ? { days: sortedDays } : null)}`
   })
 
   function toggleDay(day: number) {
     selectedDays = selectedDays.includes(day) ? selectedDays.filter((d) => d !== day) : [...selectedDays, day]
+  }
+
+  function applyDayPreset(days: number[]) {
+    const same = days.length === selectedDays.length && days.every((d) => selectedDays.includes(d))
+    selectedDays = same ? [] : [...days]
   }
 
   function buildDraft(targetTimestamp: number, at: number): AlarmRecord {
@@ -76,9 +102,32 @@
     }
   }
 
-  async function addAlarm() {
+  function resetForm() {
+    editingId = null
+    label = ''
+    time = DEFAULT_TIME
+    selectedDays = []
+  }
+
+  async function submit() {
     if (!parsedTime) return
     const at = Date.now()
+    if (editing) {
+      const updated = editAlarm(
+        editing,
+        {
+          label: label.trim() || 'Alarm',
+          hour: parsedTime.hour,
+          minute: parsedTime.minute,
+          days: sortedDays,
+          soundId,
+          volume,
+        },
+        at,
+      )
+      if (await save(() => recordActions.upsert(updated), 'Could not save that alarm. Try again.')) resetForm()
+      return
+    }
     const target = nextOccurrence(parsedTime.hour, parsedTime.minute, at, sortedDays)
     if (!(await save(() => recordActions.upsert(buildDraft(target, at)), 'Could not save that alarm. Try again.')))
       return
@@ -87,8 +136,32 @@
     selectedDays = []
   }
 
+  async function startEditing(alarm: AlarmRecord) {
+    const at = new Date(alarm.targetTimestamp)
+    editingId = alarm.id
+    label = alarm.label
+    time = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+    selectedDays = [...(alarm.recurrence?.days ?? [])]
+    soundId = alarm.soundId
+    volume = alarm.volume
+    error = null
+    await tick()
+    timeInput?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    timeInput?.focus()
+  }
+
+  async function setArmed(alarm: AlarmRecord, armed: boolean) {
+    const at = Date.now()
+    await save(
+      () => recordActions.upsert(armed ? enableAlarm(alarm, at) : disableAlarm(alarm, at)),
+      `Could not turn ${armed ? 'on' : 'off'} that alarm. Try again.`,
+    )
+  }
+
   async function removeAlarm(id: string) {
-    await save(() => recordActions.remove(id), 'Could not delete that alarm. Try again.')
+    if (await save(() => recordActions.remove(id), 'Could not delete that alarm. Try again.')) {
+      if (editingId === id) resetForm()
+    }
   }
 
   /** Fires the notification and the sound exactly as the background worker
@@ -132,80 +205,93 @@
   }
 
   function statusFor(alarm: AlarmRecord): string {
-    if (alarm.notified && !alarm.recurrence) return 'Rang'
+    if (!isAlarmArmed(alarm)) return alarm.notified && !alarm.recurrence ? 'Rang · off' : 'Off'
     return describeTimeUntil(effectiveDueTime(alarm), $now)
   }
 </script>
 
 <section class="alarms" aria-labelledby="alarms-heading">
-  <header class="head">
+  <header class="panel-head">
     <h2 id="alarms-heading">Alarms</h2>
     {#if alarms.length > 0}
-      <span class="count">{alarms.length} set</span>
+      <span class="panel-meta">{armedCount} of {alarms.length} on</span>
     {/if}
   </header>
 
   {#if alarms.length === 0}
-    <p class="empty">No alarms yet — set your first one below.</p>
+    <div class="empty-state">
+      <Icon name="alarm" size={22} />
+      <strong>No alarms yet</strong>
+      <span>Set your first one below. It rings even when this popup is closed.</span>
+    </div>
   {:else}
     <ul class="list">
       {#each alarms as alarm (alarm.id)}
-        <li class="alarm" class:snoozed={alarm.snoozedUntil !== null}>
-          <span class="clock">{formatAlarmClock(effectiveDueTime(alarm), $settings.hour12)}</span>
-          <div class="detail">
-            <div class="titleRow">
-              <span class="label">{alarm.label}</span>
-              {#if alarm.snoozedUntil !== null}
-                <span class="badge">Snoozed</span>
-              {/if}
-            </div>
-            <div class="metaRow">
-              <span class="repeat">{describeRecurrence(alarm.recurrence)}</span>
-              <span class="dot" aria-hidden="true">·</span>
-              <span class="until">{statusFor(alarm)}</span>
-            </div>
-          </div>
-          <div class="rowActions">
-            <button
-              type="button"
-              class="calBtn"
-              title={`Add alarm ${alarm.label} to Google Calendar`}
-              aria-label={`Add alarm ${alarm.label} to Google Calendar`}
-              onclick={() => addToGoogleCalendar(alarm)}
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">
-                <rect x="2.2" y="3.4" width="11.6" height="10.4" rx="2" />
-                <path d="M2.2 6.6h11.6M5.6 2v2.6M10.4 2v2.6" stroke-linecap="round" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="calBtn"
-              title={`Download the .ics calendar file for alarm ${alarm.label}`}
-              aria-label={`Download the .ics calendar file for alarm ${alarm.label}`}
-              onclick={() => saveIcs(alarm)}
-            >
-              <svg
-                viewBox="0 0 16 16"
-                aria-hidden="true"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M8 2.4v7.2M5.1 6.9 8 9.8l2.9-2.9M3.2 13.2h9.6" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="delete"
-              aria-label={`Delete alarm ${alarm.label}`}
+        {@const armed = isAlarmArmed(alarm)}
+        <li class="alarm card" class:off={!armed} class:editing={alarm.id === editingId}>
+          <div class="top">
+            <span class="clock">{formatAlarmClock(effectiveDueTime(alarm), $settings.hour12)}</span>
+            {#if alarm.snoozedUntil !== null && alarm.snoozedUntil !== undefined && armed}
+              <span class="chip accent">Snoozed</span>
+            {/if}
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              aria-label={`${alarm.label} alarm`}
+              checked={armed}
               disabled={saving}
-              onclick={() => void removeAlarm(alarm.id)}
-            >
-              <span aria-hidden="true">✕</span>
-            </button>
+              onchange={(event) => void setArmed(alarm, event.currentTarget.checked)}
+            />
+          </div>
+          <div class="bottom">
+            <div class="detail">
+              <span class="label">{alarm.label}</span>
+              <span class="meta">
+                <span class="repeat">{describeRecurrence(alarm.recurrence)}</span>
+                <span aria-hidden="true">·</span>
+                <span class="until">{statusFor(alarm)}</span>
+              </span>
+            </div>
+            <div class="rowActions">
+              <button
+                type="button"
+                class="icon-btn"
+                title="Edit"
+                aria-label={`Edit alarm ${alarm.label}`}
+                onclick={() => void startEditing(alarm)}
+              >
+                <Icon name="edit" size={15} />
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Add to Google Calendar"
+                aria-label={`Add alarm ${alarm.label} to Google Calendar`}
+                onclick={() => addToGoogleCalendar(alarm)}
+              >
+                <Icon name="calendar" size={15} />
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Download .ics"
+                aria-label={`Download the .ics calendar file for alarm ${alarm.label}`}
+                onclick={() => saveIcs(alarm)}
+              >
+                <Icon name="download" size={15} />
+              </button>
+              <button
+                type="button"
+                class="icon-btn danger"
+                title="Delete"
+                aria-label={`Delete alarm ${alarm.label}`}
+                disabled={saving}
+                onclick={() => void removeAlarm(alarm.id)}
+              >
+                <Icon name="trash" size={15} />
+              </button>
+            </div>
           </div>
         </li>
       {/each}
@@ -213,23 +299,38 @@
   {/if}
 
   <form
-    class="new"
+    class="new card"
+    class:is-editing={editing}
+    aria-labelledby="alarm-form-title"
     onsubmit={(event) => {
       event.preventDefault()
-      addAlarm()
+      void submit()
     }}
   >
-    <h3 class="formTitle">New alarm</h3>
+    <div class="formHead">
+      <h3 id="alarm-form-title" class="section-title">{editing ? `Edit “${editing.label}”` : 'New alarm'}</h3>
+      {#if editing}
+        <button type="button" class="btn btn-quiet btn-sm" onclick={resetForm}>Cancel</button>
+      {/if}
+    </div>
 
     <div class="topRow">
       <label class="sr-only" for="alarm-time">Time</label>
-      <input id="alarm-time" class="time" type="time" bind:value={time} required />
+      <input id="alarm-time" class="input time" type="time" bind:this={timeInput} bind:value={time} required />
       <label class="sr-only" for="alarm-label">Label</label>
-      <input id="alarm-label" class="text" type="text" placeholder="Label" disabled={saving} bind:value={label} />
+      <input
+        id="alarm-label"
+        class="input text"
+        type="text"
+        placeholder="Label"
+        maxlength="80"
+        disabled={saving}
+        bind:value={label}
+      />
     </div>
 
     <fieldset class="days">
-      <legend>Repeat</legend>
+      <legend class="field-label">Repeat</legend>
       <div class="dayRow">
         {#each DAY_LABELS as dayLabel, day (day)}
           <button
@@ -241,225 +342,144 @@
             disabled={saving}
             onclick={() => toggleDay(day)}
           >
-            {dayLabel}
+            {dayLabel.slice(0, 2)}
+          </button>
+        {/each}
+      </div>
+      <div class="presetRow">
+        {#each DAY_PRESETS as preset (preset.label)}
+          <button
+            type="button"
+            class="btn btn-quiet btn-sm"
+            disabled={saving}
+            onclick={() => applyDayPreset(preset.days)}
+          >
+            {preset.label}
           </button>
         {/each}
       </div>
     </fieldset>
 
     <div class="field">
-      <span class="fieldLabel">Sound</span>
+      <span class="field-label">Sound</span>
       <SoundPicker bind:soundId bind:volume />
     </div>
 
-    <p class="preview" aria-live="polite">{previewCaption}</p>
+    <p class="hint" aria-live="polite">{previewCaption}</p>
 
     <div class="actions">
-      <button type="button" class="ghost" onclick={testAlarm}>Test</button>
-      <button type="submit" class="primary" disabled={saving}>{saving ? 'Saving…' : 'Add alarm'}</button>
+      <button type="button" class="btn" onclick={testAlarm}><Icon name="bell" /> Test</button>
+      <button type="submit" class="btn btn-primary grow" disabled={saving || !parsedTime}>
+        {saving ? 'Saving…' : editing ? 'Save changes' : 'Add alarm'}
+      </button>
     </div>
   </form>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
 </section>
 
 <style>
   .alarms {
-    /* The popup root owns these; the fallbacks only matter when a panel is
-       mounted on its own, as the tests do. */
-    --surface: var(--tint, rgba(255, 255, 255, 0.045));
-    --surface-strong: var(--tint-strong, rgba(255, 255, 255, 0.08));
-    --line: var(--hairline, rgba(255, 255, 255, 0.09));
-    --muted: var(--fg-muted, #a5a5b0);
-
     display: flex;
     flex-direction: column;
-    gap: 0.875rem;
+    gap: 0.75rem;
     width: 100%;
     color: inherit;
     text-align: left;
   }
 
-  .head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .count {
-    font-size: 0.75rem;
-    color: var(--muted);
-  }
-
-  .empty {
-    margin: 0;
-    padding: 1.25rem 1rem;
-    border: 1px dashed var(--line);
-    border-radius: 0.75rem;
-    text-align: center;
-    font-size: 0.85rem;
-    color: var(--muted);
-  }
-
   .list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.45rem;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
   .alarm {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 0.75rem;
-    border: 1px solid var(--line);
-    border-radius: 0.75rem;
-    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.6rem 0.75rem 0.45rem;
     transition:
-      border-color 120ms ease,
-      background 120ms ease;
+      border-color 140ms ease,
+      opacity 140ms ease;
   }
 
-  .alarm:hover {
-    border-color: var(--surface-strong);
-    background: var(--surface-strong);
+  .alarm.editing {
+    border-color: var(--accent, #8b7cf6);
   }
 
-  .alarm.snoozed .clock {
-    color: var(--muted);
+  .top,
+  .bottom {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .clock {
-    font-size: 1.5rem;
+    margin-right: auto;
+    font-size: 1.75rem;
     font-weight: 300;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+
+  .alarm.off .clock,
+  .alarm.off .label {
+    color: var(--fg-muted);
   }
 
   .detail {
     display: flex;
+    flex: 1;
     flex-direction: column;
-    gap: 0.15rem;
-    min-width: 0;
-  }
-
-  .titleRow,
-  .metaRow {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
     min-width: 0;
   }
 
   .label {
     overflow: hidden;
-    font-size: 0.9rem;
-    font-weight: 500;
+    font-size: 0.85rem;
+    font-weight: 550;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .badge {
-    padding: 0.05rem 0.35rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent, #8b7cf6) 30%, transparent);
-    font-size: 0.65rem;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
-  .metaRow {
-    font-size: 0.75rem;
-    color: var(--muted);
+  .meta {
+    display: flex;
+    gap: 0.3rem;
+    color: var(--fg-muted);
+    font-size: 0.72rem;
   }
 
   .rowActions {
     display: flex;
-    align-items: center;
-    gap: 0.1rem;
+    gap: 0.05rem;
   }
 
-  .calBtn {
-    display: grid;
-    place-items: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: 0.5rem;
-    background: none;
-    color: var(--muted);
-    cursor: pointer;
-    transition:
-      color 120ms ease,
-      background 120ms ease;
-  }
-
-  .calBtn svg {
-    width: 0.85rem;
-    height: 0.85rem;
-  }
-
-  .calBtn:hover,
-  .calBtn:focus-visible {
-    background: color-mix(in srgb, var(--accent, #8b7cf6) 22%, transparent);
-    color: var(--fg, #f5f5f7);
-  }
-
-  .delete {
-    display: grid;
-    place-items: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: 0.5rem;
-    background: none;
-    color: var(--muted);
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition:
-      color 120ms ease,
-      background 120ms ease;
-  }
-
-  .delete:hover,
-  .delete:focus-visible {
-    background: var(--danger-tint, rgba(248, 113, 113, 0.15));
-    color: var(--danger, #fca5a5);
+  .rowActions .icon-btn {
+    width: 1.8rem;
+    height: 1.8rem;
   }
 
   .new {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
-    padding: 0.875rem;
-    border: 1px solid var(--line);
-    border-radius: 0.875rem;
-    background: var(--surface);
+    gap: 0.65rem;
+    padding: 0.85rem;
   }
 
-  .formTitle {
-    margin: 0;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    text-transform: uppercase;
+  .new.is-editing {
+    border-color: var(--accent, #8b7cf6);
+  }
+
+  .formHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 1.75rem;
   }
 
   .topRow {
@@ -467,60 +487,45 @@
     gap: 0.5rem;
   }
 
-  input {
-    min-width: 0;
-    padding: 0.4rem 0.55rem;
-    border: 1px solid var(--line);
-    border-radius: 0.5rem;
-    background: var(--field, rgba(0, 0, 0, 0.25));
-    color: inherit;
-    font: inherit;
-    font-size: 0.85rem;
-  }
-
-  input.time {
+  .time {
     flex: 0 0 auto;
+    font-size: 1rem;
     font-variant-numeric: tabular-nums;
   }
 
-  input.text {
+  .text {
     flex: 1 1 auto;
   }
 
-  input:focus-visible,
-  button:focus-visible {
-    outline: 2px solid var(--accent, #8b7cf6);
-    outline-offset: 2px;
-  }
-
   .days {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
     margin: 0;
     padding: 0;
     border: 0;
   }
 
   legend {
-    padding: 0 0 0.3rem;
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-    text-transform: uppercase;
+    padding: 0 0 0.35rem;
   }
 
   .dayRow {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
     gap: 0.25rem;
   }
 
   .day {
-    flex: 1 1 0;
-    padding: 0.3rem 0;
-    border: 1px solid var(--line);
-    border-radius: 0.45rem;
+    height: 2.1rem;
+    padding: 0;
+    border: 1px solid var(--hairline);
+    border-radius: 0.6rem;
     background: transparent;
-    color: var(--muted);
+    color: var(--fg-muted);
     font: inherit;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
+    font-weight: 550;
     cursor: pointer;
     transition:
       background 120ms ease,
@@ -528,37 +533,27 @@
       border-color 120ms ease;
   }
 
-  .day:hover {
+  .day:hover:not(:disabled) {
     border-color: var(--accent, #8b7cf6);
-    color: var(--fg, #f5f5f7);
+    color: var(--fg);
   }
 
   .day.on {
     border-color: transparent;
     background: var(--accent, #8b7cf6);
     color: var(--on-accent, #14121f);
-    font-weight: 600;
+    font-weight: 650;
+  }
+
+  .presetRow {
+    display: flex;
+    gap: 0.25rem;
   }
 
   .field {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
-
-  .fieldLabel {
-    flex: 0 0 auto;
-  }
-
-  .field :global(.sound-picker) { flex: 1 1 auto; min-width: 0; }
-
-  .preview {
-    margin: 0;
-    font-size: 0.75rem;
-    color: var(--muted);
+    flex-direction: column;
+    gap: 0.35rem;
   }
 
   .actions {
@@ -566,69 +561,7 @@
     gap: 0.5rem;
   }
 
-  .actions button {
-    padding: 0.45rem 0.75rem;
-    border-radius: 0.55rem;
-    font: inherit;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition:
-      background 120ms ease,
-      border-color 120ms ease;
-  }
-
-  .ghost {
-    border: 1px solid var(--line);
-    background: transparent;
-    color: inherit;
-  }
-
-  .ghost:hover {
-    border-color: var(--accent, #8b7cf6);
-  }
-
-  .primary {
+  .grow {
     flex: 1 1 auto;
-    border: 1px solid transparent;
-    background: var(--accent, #8b7cf6);
-    color: var(--on-accent, #14121f);
-    font-weight: 600;
-  }
-
-  .primary:hover {
-    background: color-mix(in srgb, var(--accent, #8b7cf6) 85%, #ffffff);
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .error {
-    margin: 0;
-    color: var(--danger, #fca5a5);
-    font-size: 0.72rem;
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .alarm,
-    .day,
-    .calBtn,
-    .delete,
-    .actions button {
-      transition: none;
-    }
   }
 </style>
