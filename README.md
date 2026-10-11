@@ -25,10 +25,10 @@ no server.
 <summary>More screenshots</summary>
 <br>
 <img src="docs/assets/alarms-screenshot.png" width="270" alt="Alarms with on/off switches, repeat days, and the new-alarm form">
-<img src="docs/assets/timers-screenshot.png" width="270" alt="Two timers, one running and one paused, with Pause, Resume, and +1 min">
+<img src="docs/assets/timers-screenshot.png" width="270" alt="Two timers, one running and showing when it ends, one paused, with Pause, Resume, and +1 min">
 <img src="docs/assets/stopwatch-screenshot.png" width="270" alt="The stopwatch with four laps, the fastest and slowest highlighted">
 <img src="docs/assets/world-screenshot.png" width="270" alt="World clocks planning a 16:00 meeting across New York, London, Tokyo, and San Francisco">
-<img src="docs/assets/settings-screenshot.png" width="270" alt="Appearance settings: theme, clock face, and display toggles">
+<img src="docs/assets/settings-screenshot.png" width="270" alt="Settings: theme, clock face, display toggles, and the start of the Alerts section">
 <img src="docs/assets/light-screenshot.png" width="270" alt="The overview in the light theme">
 </details>
 
