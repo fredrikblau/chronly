@@ -136,6 +136,7 @@ when things ring easy to test in isolation.
 | Panels and the popup | Vitest, Testing Library, jsdom            | `components/*.test.ts`, `tests/` |
 | Background wiring    | Vitest with `@webext-core/fake-browser`   | `tests/background.test.ts`       |
 | The real extension   | Playwright driving a built Chromium build | `e2e/*.spec.ts`                  |
+| Accessibility        | axe-core (WCAG 2.1 AA) in Playwright      | `e2e/accessibility.spec.ts`      |
 
 The end-to-end suite seeds records a few seconds in the future to watch the
 background worker fire them, and checks notifications, the badge, and

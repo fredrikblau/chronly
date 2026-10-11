@@ -67,6 +67,8 @@ All notable changes to Chronly are documented here. The format follows
 - Choosing a background that did not match the current theme silently did
   nothing; a chosen background now sets a readable text palette of its own.
 - A popup taller than its window no longer shows a horizontal scrollbar.
+- Secondary text and accent-coloured text meet WCAG 2.1 AA contrast in both
+  themes; an axe audit of every tab now runs in the end-to-end suite.
 - Paused timers and switched-off or spent alarms no longer keep a scheduled
   browser wake-up.
 

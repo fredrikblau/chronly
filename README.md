@@ -47,6 +47,9 @@ around not letting that happen.
 - **It stays yours.** No account, analytics, ads, remote code, or host
   permissions. Everything is stored in your browser, and you can export it to a
   file.
+- **It's for everyone.** Keyboard shortcuts, screen-reader labels, reduced
+  motion, adjustable text size, and an automated WCAG 2.1 AA audit of every
+  tab in both themes.
 - **It's open.** MIT licensed, with around 400 unit tests and an end-to-end
   suite that drives the real extension in Chromium.
 
