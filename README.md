@@ -25,7 +25,10 @@ no server.
 <summary>More screenshots</summary>
 <br>
 <img src="docs/assets/alarms-screenshot.png" width="270" alt="Alarms with on/off switches, repeat days, and the new-alarm form">
+<img src="docs/assets/timers-screenshot.png" width="270" alt="Two timers, one running and one paused, with Pause, Resume, and +1 min">
+<img src="docs/assets/stopwatch-screenshot.png" width="270" alt="The stopwatch with four laps, the fastest and slowest highlighted">
 <img src="docs/assets/world-screenshot.png" width="270" alt="World clocks planning a 16:00 meeting across New York, London, Tokyo, and San Francisco">
+<img src="docs/assets/settings-screenshot.png" width="270" alt="Appearance settings: theme, clock face, and display toggles">
 <img src="docs/assets/light-screenshot.png" width="270" alt="The overview in the light theme">
 </details>
 
@@ -40,19 +43,20 @@ around not letting that happen.
 - **It rings.** Every alarm, timer, and Pomodoro phase is stored as an absolute
   time and scheduled with the browser's own alarm API, so it survives a closed
   popup, a suspended service worker, a browser restart, and sleep.
-- **You can always stop it.** Sound and a system notification fire together.
-  If the notification is hidden or blocked, the toolbar icon shows a badge and
-  the popup shows Snooze and Dismiss, which matters on Firefox, where
-  notifications have no buttons. On Firefox, click the notification or press
-  Dismiss in the popup to stop it.
+- **You can always stop it, and it never stops by itself.** Sound and a
+  system notification fire together. If the notification is blocked, hidden by
+  Do Not Disturb, or times out, the alarm keeps ringing: the toolbar icon shows
+  a badge and the popup offers Snooze and Dismiss. On Firefox, where
+  notifications have no buttons, click the notification or use the popup.
 - **It stays yours.** No account, analytics, ads, remote code, or host
   permissions. Everything is stored in your browser, and you can export it to a
   file.
 - **It's for everyone.** Keyboard shortcuts, screen-reader labels, reduced
   motion, adjustable text size, and an automated WCAG 2.1 AA audit of every
   tab in both themes.
-- **It's open.** MIT licensed, with around 400 unit tests and an end-to-end
-  suite that drives the real extension in Chromium.
+- **It's open.** MIT licensed, with around 400 unit tests and end-to-end suites
+  that drive the real extension in both Chromium and Firefox on every pull
+  request.
 
 ## Features
 
@@ -125,6 +129,8 @@ npm install
 npm run dev              # Chrome with hot reload (npm run dev:firefox for Firefox)
 npm run preview:popup    # the popup in a normal browser tab, no extension needed
 npm run check            # typecheck, lint, format check, and unit tests
+npm run test:e2e         # the built extension in real Chromium (see CONTRIBUTING.md)
+npm run test:firefox     # the Firefox package in real Firefox
 ```
 
 Good places to start:
@@ -145,6 +151,7 @@ lib/core/      framework-free logic: scheduling, storage, time zones, alerts, ba
 lib/ui/        thin Svelte stores and display formatting over lib/core
 components/    the popup's panels and shared pieces (Icon, RingingBanner, ...)
 e2e/           Playwright specs that drive the built extension in Chromium
+e2e-firefox/   WebDriver smoke tests for the Firefox package
 tests/         Vitest suites for the popup shell and background worker
 harness/       standalone Vite preview of the popup
 scripts/       manifest checks and screenshot and store-asset generators

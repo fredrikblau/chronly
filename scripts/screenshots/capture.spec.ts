@@ -131,5 +131,34 @@ test('capture README and store screenshots', async () => {
   await tab(page, 'Clock')
   await shot(page, 'light-screenshot')
 
+  // The remaining panels, back in the dark theme. Captured last so the extra
+  // timer and the stopwatch stay out of the overview shots above.
+  await tab(page, 'Settings')
+  await settings.locator('label.option').filter({ hasText: 'Dark' }).click()
+  await shot(page, 'settings-screenshot')
+
+  await tab(page, 'Timers')
+  await timers.getByRole('button', { name: '10 minutes', exact: true }).click()
+  await timers.getByPlaceholder('Label').fill('Pasta')
+  await timers.getByRole('button', { name: 'Start', exact: true }).click()
+  await page.clock.setFixedTime(NOW + 9 * 60_000 + 35_000)
+  await timers.getByRole('button', { name: 'Pause Pasta' }).click()
+  await page.clock.setFixedTime(NOW + 9 * 60_000 + 50_000)
+  await shot(page, 'timers-screenshot')
+
+  const stopwatch = await tab(page, 'Stopwatch')
+  const lapAt = async (offsetMs: number) => {
+    await page.clock.setFixedTime(NOW + 10 * 60_000 + offsetMs)
+    await stopwatch.getByRole('button', { name: 'Lap' }).click()
+  }
+  await page.clock.setFixedTime(NOW + 10 * 60_000)
+  await stopwatch.getByRole('button', { name: 'Start' }).click()
+  await lapAt(83_420)
+  await lapAt(161_870)
+  await lapAt(247_150)
+  await lapAt(318_640)
+  await page.clock.setFixedTime(NOW + 10 * 60_000 + 352_270)
+  await shot(page, 'stopwatch-screenshot')
+
   await context.close()
 })
