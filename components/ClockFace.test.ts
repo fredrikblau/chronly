@@ -44,11 +44,7 @@ describe('ClockFace', () => {
       mode: 'analog',
     })
     // 21:30 -> hour hand at 9h30m = 285deg, minute hand at 30m = 180deg.
-    expect(container.querySelector('.hand.hour')?.getAttribute('transform')).toBe(
-      'rotate(285 50 50)',
-    )
-    expect(container.querySelector('.hand.minute')?.getAttribute('transform')).toBe(
-      'rotate(180 50 50)',
-    )
+    expect(container.querySelector('.hand.hour')?.getAttribute('transform')).toBe('rotate(285 50 50)')
+    expect(container.querySelector('.hand.minute')?.getAttribute('transform')).toBe('rotate(180 50 50)')
   })
 })

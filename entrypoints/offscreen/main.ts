@@ -1,5 +1,11 @@
 import { browser } from 'wxt/browser'
-import { isPlaySoundMessage, isSafeAudioDataUrl, isStopSoundMessage, playPresetLocally, resolveSoundPreset } from '../../lib/core/audio'
+import {
+  isPlaySoundMessage,
+  isSafeAudioDataUrl,
+  isStopSoundMessage,
+  playPresetLocally,
+  resolveSoundPreset,
+} from '../../lib/core/audio'
 
 const active = new Map<string, { stopped: boolean }>()
 const audioElements = new Map<string, HTMLAudioElement>()

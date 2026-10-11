@@ -33,13 +33,69 @@ const SOUND_MELODIES: Record<string, number[]> = {
 
 export const SOUND_PRESETS: SoundPreset[] = [
   DEFAULT_PRESET,
-  { id: 'gentle', label: 'Soft sunrise', frequency: 523, beeps: 3, description: 'Quiet, gentle chimes', waveform: 'sine', sourceUrl: '/sounds/confirmation-2.ogg' },
-  { id: 'urgent', label: 'Bright alert', frequency: 880, beeps: 5, description: 'Crisp repeating alert', waveform: 'square', sourceUrl: '/sounds/confirmation-3.ogg' },
-  { id: 'pulse', label: 'Deep reminder', frequency: 392, beeps: 3, description: 'Low, steady reminder', waveform: 'triangle', sourceUrl: '/sounds/confirmation-4.ogg' },
-  { id: 'crystal', label: 'Crystal drops', frequency: 1047, beeps: 4, description: 'Light, sparkling melody', waveform: 'sine', sourceUrl: '/sounds/open-1.ogg' },
-  { id: 'marimba', label: 'Warm marimba', frequency: 392, beeps: 4, description: 'Rounded wooden notes', waveform: 'triangle', sourceUrl: '/sounds/open-2.ogg' },
-  { id: 'starlight', label: 'Starlight', frequency: 784, beeps: 4, description: 'Airy, floating melody', waveform: 'sine', sourceUrl: '/sounds/open-3.ogg' },
-  { id: 'double', label: 'Double tap', frequency: 784, beeps: 4, description: 'Short, friendly two-tone alert', waveform: 'triangle', sourceUrl: '/sounds/open-4.ogg' },
+  {
+    id: 'gentle',
+    label: 'Soft sunrise',
+    frequency: 523,
+    beeps: 3,
+    description: 'Quiet, gentle chimes',
+    waveform: 'sine',
+    sourceUrl: '/sounds/confirmation-2.ogg',
+  },
+  {
+    id: 'urgent',
+    label: 'Bright alert',
+    frequency: 880,
+    beeps: 5,
+    description: 'Crisp repeating alert',
+    waveform: 'square',
+    sourceUrl: '/sounds/confirmation-3.ogg',
+  },
+  {
+    id: 'pulse',
+    label: 'Deep reminder',
+    frequency: 392,
+    beeps: 3,
+    description: 'Low, steady reminder',
+    waveform: 'triangle',
+    sourceUrl: '/sounds/confirmation-4.ogg',
+  },
+  {
+    id: 'crystal',
+    label: 'Crystal drops',
+    frequency: 1047,
+    beeps: 4,
+    description: 'Light, sparkling melody',
+    waveform: 'sine',
+    sourceUrl: '/sounds/open-1.ogg',
+  },
+  {
+    id: 'marimba',
+    label: 'Warm marimba',
+    frequency: 392,
+    beeps: 4,
+    description: 'Rounded wooden notes',
+    waveform: 'triangle',
+    sourceUrl: '/sounds/open-2.ogg',
+  },
+  {
+    id: 'starlight',
+    label: 'Starlight',
+    frequency: 784,
+    beeps: 4,
+    description: 'Airy, floating melody',
+    waveform: 'sine',
+    sourceUrl: '/sounds/open-3.ogg',
+  },
+  {
+    id: 'double',
+    label: 'Double tap',
+    frequency: 784,
+    beeps: 4,
+    description: 'Short, friendly two-tone alert',
+    waveform: 'triangle',
+    sourceUrl: '/sounds/open-4.ogg',
+  },
 ]
 
 export function resolveSoundPreset(soundId: string): SoundPreset {
@@ -88,10 +144,10 @@ export function isPlaySoundMessage(message: unknown): message is PlaySoundMessag
     typeof candidate.volume === 'number' &&
     Number.isFinite(candidate.volume) &&
     candidate.volume >= 0 &&
-    candidate.volume <= 1
-    && typeof candidate.playbackId === 'string'
-    && typeof candidate.loop === 'boolean'
-    && (candidate.audioDataUrl === undefined || typeof candidate.audioDataUrl === 'string')
+    candidate.volume <= 1 &&
+    typeof candidate.playbackId === 'string' &&
+    typeof candidate.loop === 'boolean' &&
+    (candidate.audioDataUrl === undefined || typeof candidate.audioDataUrl === 'string')
   )
 }
 
@@ -136,7 +192,12 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function playTone(frequency: number, volume: number, durationMs: number, waveform: OscillatorType): Promise<void> {
+async function playTone(
+  frequency: number,
+  volume: number,
+  durationMs: number,
+  waveform: OscillatorType,
+): Promise<void> {
   const context = new AudioContext()
   await context.resume().catch(() => undefined)
   await new Promise<void>((resolve) => {
