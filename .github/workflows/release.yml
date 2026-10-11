@@ -31,7 +31,6 @@ jobs:
     permissions:
       contents: write
     env:
-      GH_TOKEN: ${{ github.token }}
       # Typed by a person on a manual run, so it only ever reaches the shell
       # through this variable and is checked before use.
       TAG: ${{ inputs.tag || github.ref_name }}
@@ -43,8 +42,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Check the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]; then
             echo "::error::$TAG is not a version tag like v0.2.0 or v0.2.0-rc.1"
             exit 1
           fi
@@ -56,23 +57,51 @@ jobs:
               exit 1
               ;;
           esac
-          # An existing tag must name the commit CI just checked.
-          tagged="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha 2>/dev/null || true)"
-          if [[ -n "$tagged" && "$tagged" != "$GITHUB_SHA" ]]; then
-            echo "::error::$TAG already points at $tagged, not $GITHUB_SHA"
-            exit 1
+          # A tag that already exists must name the commit CI just checked.
+          # matching-refs lists nothing for a new tag (and matches prefixes,
+          # so v0.1.0-rc.1 would also find rc.10), so any failure here is a
+          # real error and stops the run.
+          matches="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" \
+            --jq "map(select(.ref == \"refs/tags/$TAG\")) | length")"
+          if [[ "$matches" != 0 ]]; then
+            tagged="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+            if [[ "$tagged" != "$GITHUB_SHA" ]]; then
+              echo "::error::$TAG already points at $tagged, not $GITHUB_SHA"
+              exit 1
+            fi
+            echo "TAG_EXISTS=true" >> "$GITHUB_ENV"
           fi
       - run: npm run zip
       - run: npm run zip:firefox
       - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            # Drafted on GitHub: keep its notes and settings, add the builds.
+          if draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            # Made on GitHub: keep its notes and settings, add the builds. A
+            # draft's tag is only created when it is published, from its
+            # target, so pin that to the commit these zips came from.
+            if [[ "$draft" == true && "${TAG_EXISTS:-}" != true ]]; then
+              gh release edit "$TAG" --target "$GITHUB_SHA"
+            fi
             gh release upload "$TAG" .output/*.zip --clobber
             exit 0
           fi
+          # Name a commit only for a new tag. For an existing one GitHub
+          # ignores it, and sending it anyway brings in a workflow-file check
+          # the job's token fails once main's workflows have moved on.
+          if [[ "${TAG_EXISTS:-}" == true ]]; then
+            where=(--verify-tag)
+          else
+            where=(--target "$GITHUB_SHA")
+          fi
           prerelease=()
           if [[ "$TAG" == *-* ]]; then prerelease=(--prerelease); fi
-          gh release create "$TAG" .output/*.zip \
-            --target "$GITHUB_SHA" --generate-notes \
-            --title "Chronly ${TAG#v}" "${prerelease[@]}"
+          # Release candidates keep the "Chronly 0.1.0 RC10" titles of the
+          # earlier ones.
+          title="Chronly ${TAG#v}"
+          if [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-rc\.([0-9]+)$ ]]; then
+            title="Chronly ${BASH_REMATCH[1]} RC${BASH_REMATCH[2]}"
+          fi
+          gh release create "$TAG" .output/*.zip "${where[@]}" \
+            --generate-notes --title "$title" "${prerelease[@]}"
