@@ -105,10 +105,15 @@ for (const theme of ['Dark', 'Light'] as const) {
 
     const alarms = await openTab(page, 'Alarms')
     await expect(alarms.getByRole('note')).toContainText('Notifications are off for Chronly')
-    await alarms.getByPlaceholder('Label').fill('Audit undo')
+    await alarms.getByPlaceholder('Label').fill('Audit delete')
     await alarms.getByRole('button', { name: 'Add alarm', exact: true }).click()
-    await alarms.getByRole('button', { name: 'Delete alarm Audit undo' }).click()
-    await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible()
+    await alarms.getByRole('button', { name: 'Delete alarm Audit delete' }).click()
+    await expect(
+      page
+        .getByRole('status')
+        .filter({ hasText: 'Deleted “Audit delete”' })
+        .getByRole('button', { name: 'Undo', exact: true }),
+    ).toBeVisible()
 
     for (const name of ['Clock', 'Alarms', 'Settings']) {
       await openTab(page, name)
