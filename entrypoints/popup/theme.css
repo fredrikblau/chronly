@@ -476,3 +476,12 @@
   border-radius: 999px;
   background: var(--tint-strong);
 }
+
+/* Firefox has no ::-webkit-scrollbar; the standard properties do the same job
+   (and would switch the WebKit styling off in Chrome if applied there). */
+@supports not selector(::-webkit-scrollbar) {
+  .app * {
+    scrollbar-color: var(--tint-strong) transparent;
+    scrollbar-width: thin;
+  }
+}

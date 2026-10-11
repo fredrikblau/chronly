@@ -232,13 +232,18 @@
 </div>
 
 <style>
+  /*
+    A fixed-height popup with only the panel area scrolling. Letting the whole
+    document scroll put the scrollbar inside the fixed-width body, which pushed
+    the content sideways into a horizontal scrollbar, and made the popup jump in
+    height from tab to tab. 600px is the tallest popup both browsers allow.
+  */
   .app {
     display: flex;
     flex-direction: column;
     width: 100%;
-    /* Fills the popup so the surface under a short panel is the themed one and
-       not whatever the page started as. */
-    min-height: 100vh;
+    height: min(600px, 100vh);
+    overflow: hidden;
     background: var(--bg, #0b0b0f);
     background-attachment: fixed;
     background-size: cover;
@@ -250,16 +255,12 @@
 
   .tabs {
     display: grid;
+    flex: 0 0 auto;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 0.125rem;
     padding: 0.4rem 0.5rem;
     border-bottom: 1px solid var(--hairline);
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    /* Panels scroll under the strip, so it cannot be transparent. */
     background: var(--chrome);
-    backdrop-filter: blur(12px);
   }
 
   .app-content {
@@ -267,6 +268,7 @@
     flex: 1;
     flex-direction: column;
     min-width: 0;
+    min-height: 0;
     margin: 0;
     padding: 0;
     border: 0;
@@ -343,7 +345,11 @@
 
   main {
     flex: 1;
+    min-height: 0;
     padding: 0.875rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 
   /* Must beat any display rule on a panel wrapper, which would otherwise win by
@@ -376,7 +382,7 @@
   :global(body) {
     margin: 0;
     width: 460px;
-    min-height: 560px;
+    overflow: hidden;
     background: var(--bg, #0b0b0f);
     font-family:
       system-ui,

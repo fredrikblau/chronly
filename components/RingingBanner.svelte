@@ -71,6 +71,7 @@
 <style>
   .ringing {
     display: grid;
+    flex: 0 0 auto;
     gap: 0.4rem;
     padding: 0.625rem 0.875rem 0;
   }
