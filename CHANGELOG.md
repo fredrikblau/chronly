@@ -39,6 +39,14 @@ All notable changes to Chronly are documented here. The format follows
   and a 7-day chart.
 - Accent swatches, an About section with project links, and backup export and
   import in Settings.
+- Deleting an alarm, timer, world clock, or focus session offers Undo, also on
+  Ctrl+Z (⌘Z). The message stays up while the pointer or focus is on it.
+- Settings has an Alerts section: pick how long Snooze lasts (5 to 30 minutes),
+  and turn on gentle wake to have alarms start quietly and rise to full volume
+  over 30 seconds.
+- Running timers show the time they end.
+- <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> opens Chronly from any tab.
+- The popup warns when notifications are turned off for Chronly.
 
 ### Fixed
 

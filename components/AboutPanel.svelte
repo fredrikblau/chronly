@@ -18,10 +18,12 @@
   })()
 
   const SHORTCUTS = [
+    { keys: 'Alt+Shift+K', action: 'Open Chronly from anywhere' },
     { keys: '1 – 7', action: 'Switch tab' },
     { keys: '← →', action: 'Move between tabs' },
     { keys: 'Space', action: 'Start or pause the stopwatch' },
     { keys: 'L', action: 'Record a stopwatch lap' },
+    { keys: 'Ctrl+Z', action: 'Undo a delete (⌘Z on a Mac)' },
   ]
 
   let fileInput: HTMLInputElement
@@ -207,7 +209,7 @@
 
   .keys div {
     display: grid;
-    grid-template-columns: 5.5rem 1fr;
+    grid-template-columns: 6.5rem 1fr;
     align-items: center;
     font-size: 0.8rem;
   }

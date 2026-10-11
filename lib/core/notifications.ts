@@ -30,6 +30,15 @@ export const ALERT_ACTION_LABELS: Record<AlertAction, string> = {
   dismiss: 'Dismiss',
 }
 
+/** An action's button text; Snooze names the length it will actually wait. */
+export function alertActionLabel(action: AlertAction, snoozeMinutes = 5): string {
+  return action === 'snooze' ? `Snooze ${snoozeMinutes} min` : ALERT_ACTION_LABELS[action]
+}
+
+export interface NotificationPreferences {
+  snoozeMinutes?: number
+}
+
 export function notificationIdFor(kind: SchedulableRecord['kind'], recordId: string): string {
   return `chronly-${kind}-${recordId}`
 }
@@ -44,8 +53,8 @@ export function parseNotificationId(
   return { kind: match[1] as SchedulableRecord['kind'], recordId: match[2]! }
 }
 
-function buttonsFor(kind: SchedulableRecord['kind']): { title: string }[] {
-  return NOTIFICATION_ACTIONS[kind].map((action) => ({ title: ALERT_ACTION_LABELS[action] }))
+function buttonsFor(kind: SchedulableRecord['kind'], snoozeMinutes?: number): { title: string }[] {
+  return NOTIFICATION_ACTIONS[kind].map((action) => ({ title: alertActionLabel(action, snoozeMinutes) }))
 }
 
 export interface NotificationOptions {
@@ -72,7 +81,10 @@ const POMODORO_PHASE_LABELS: Record<PomodoroRecord['phase'], string> = {
   longBreak: 'Long break',
 }
 
-export function buildNotificationSpec(record: SchedulableRecord): NotificationSpec {
+export function buildNotificationSpec(
+  record: SchedulableRecord,
+  { snoozeMinutes }: NotificationPreferences = {},
+): NotificationSpec {
   const notificationId = notificationIdFor(record.kind, record.id)
 
   if (record.kind === 'alarm') {
@@ -84,7 +96,7 @@ export function buildNotificationSpec(record: SchedulableRecord): NotificationSp
         message: 'Your alarm is going off.',
         iconUrl: ICON_URL,
         requireInteraction: true,
-        buttons: buttonsFor('alarm'),
+        buttons: buttonsFor('alarm', snoozeMinutes),
       },
     }
   }

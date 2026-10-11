@@ -24,7 +24,8 @@ when product behavior, permissions, or screenshots change.
 > - See the time, what rings next, and your running timers at a glance.
 > - Schedule one-time or repeating alarms you can switch on and off, with
 >   built-in or imported sounds.
-> - Snooze or dismiss a ringing alert from the notification or the popup.
+> - Snooze or dismiss a ringing alert from the notification or the popup,
+>   choose how long Snooze lasts, and let alarms fade in gently.
 > - Run several countdowns at once and a stopwatch with lap splits.
 > - Save world clocks by city name and check a meeting time across zones.
 > - Use Pomodoro cycles with daily focus stats, and export to your calendar.

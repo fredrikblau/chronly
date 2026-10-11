@@ -110,6 +110,8 @@ export interface PlaySoundMessage {
   playbackId: string
   loop: boolean
   audioDataUrl?: string
+  /** Rise from near silence to `volume` over this long (gentle wake); 0 starts at full volume. */
+  fadeInMs?: number
 }
 
 export interface StopSoundMessage {
@@ -124,8 +126,9 @@ export function buildPlaySoundMessage(
   playbackId = 'preview',
   loop = true,
   audioDataUrl?: string,
+  fadeInMs = 0,
 ): PlaySoundMessage {
-  return { target: 'offscreen', type: 'play-sound', soundId, volume, playbackId, loop, audioDataUrl }
+  return { target: 'offscreen', type: 'play-sound', soundId, volume, playbackId, loop, audioDataUrl, fadeInMs }
 }
 
 export function buildStopSoundMessage(playbackId: string): StopSoundMessage {
@@ -147,8 +150,41 @@ export function isPlaySoundMessage(message: unknown): message is PlaySoundMessag
     candidate.volume <= 1 &&
     typeof candidate.playbackId === 'string' &&
     typeof candidate.loop === 'boolean' &&
-    (candidate.audioDataUrl === undefined || typeof candidate.audioDataUrl === 'string')
+    (candidate.audioDataUrl === undefined || typeof candidate.audioDataUrl === 'string') &&
+    (candidate.fadeInMs === undefined ||
+      (typeof candidate.fadeInMs === 'number' && Number.isFinite(candidate.fadeInMs) && candidate.fadeInMs >= 0))
   )
+}
+
+/** How long gentle wake takes to reach full volume. */
+export const FADE_IN_MS = 30_000
+const FADE_STEP_MS = 250
+/** Where gentle wake starts: quiet, but never silent, so a ring is never missed. */
+const FADE_FLOOR = 0.05
+
+/**
+ * Raise an audio element from near silence to `target` over `durationMs`.
+ * Returns a function that stops the ramp (call it when playback stops).
+ */
+export function fadeIn(
+  audio: { volume: number },
+  target: number,
+  durationMs: number,
+  now: () => number = Date.now,
+): () => void {
+  if (durationMs <= 0) {
+    audio.volume = target
+    return () => undefined
+  }
+  const start = now()
+  const floor = Math.min(target, FADE_FLOOR)
+  audio.volume = floor
+  const id = setInterval(() => {
+    const progress = Math.min(1, (now() - start) / durationMs)
+    audio.volume = floor + (target - floor) * progress
+    if (progress >= 1) clearInterval(id)
+  }, FADE_STEP_MS)
+  return () => clearInterval(id)
 }
 
 /**
@@ -166,6 +202,8 @@ export interface SoundStatus {
   active: string[]
   /** Of those, the ones whose audio element is currently playing. */
   audible: string[]
+  /** Current volume of each playing audio element, 0..1. */
+  levels: Record<string, number>
 }
 
 export function buildSoundStatusMessage(): SoundStatusMessage {
@@ -301,6 +339,7 @@ export async function playAlarmSound(
   playbackId = 'preview',
   loop = true,
   audioDataUrl?: string,
+  fadeInMs = 0,
 ): Promise<void> {
   if ('offscreen' in browser) {
     // Sound is the redundant half of the firing path — the notification goes
@@ -313,7 +352,7 @@ export async function playAlarmSound(
       // fall through and send rather than dropping the sound.
       console.warn('[chronly] offscreen document may already exist', error)
     }
-    await sendToOffscreen(buildPlaySoundMessage(soundId, volume, playbackId, loop, audioDataUrl))
+    await sendToOffscreen(buildPlaySoundMessage(soundId, volume, playbackId, loop, audioDataUrl, fadeInMs))
     return
   }
   if (localAudio.has(playbackId) || localPlayback.has(playbackId)) return
@@ -321,7 +360,7 @@ export async function playAlarmSound(
   const playableAudioUrl = audioDataUrl && isSafeAudioDataUrl(audioDataUrl) ? audioDataUrl : builtInAudioUrl
   if (playableAudioUrl && typeof Audio !== 'undefined') {
     const audio = new Audio(playableAudioUrl)
-    audio.volume = Math.min(Math.max(volume, 0), 1)
+    const stopFade = fadeIn(audio, Math.min(Math.max(volume, 0), 1), fadeInMs)
     audio.loop = loop
     localAudio.set(playbackId, audio)
     try {
@@ -332,6 +371,8 @@ export async function playAlarmSound(
     } catch {
       audio.pause()
       localAudio.delete(playbackId)
+    } finally {
+      stopFade()
     }
   }
   if (typeof AudioContext !== 'undefined') {
@@ -349,6 +390,7 @@ export function localSoundStatus(): SoundStatus {
   return {
     active: [...new Set([...localPlayback.keys(), ...localAudio.keys()])],
     audible: [...localAudio].filter(([, audio]) => !audio.paused).map(([id]) => id),
+    levels: Object.fromEntries([...localAudio].map(([id, audio]) => [id, audio.volume])),
   }
 }
 

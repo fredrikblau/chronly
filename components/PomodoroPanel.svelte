@@ -11,6 +11,7 @@
   import { formatCountdown, formatSpent, spokenCountdown } from '../lib/ui/format'
   import { createNowStore } from '../lib/ui/now'
   import { recordActions, records } from '../lib/ui/records'
+  import { offerUndo } from '../lib/ui/toast'
   import { loadStorage } from '../lib/ui/storageLoad'
   import Icon from './Icon.svelte'
   import SoundPicker from './SoundPicker.svelte'
@@ -132,7 +133,9 @@
   }
 
   async function stop(record: PomodoroRecord) {
-    await save(() => recordActions.remove(record.id), 'Could not stop the Pomodoro. Try again.')
+    if (await save(() => recordActions.remove(record.id), 'Could not stop the Pomodoro. Try again.')) {
+      offerUndo(`Stopped “${record.label}”`, () => recordActions.upsert(record))
+    }
   }
 
   function phaseDurationMs(record: PomodoroRecord): number {

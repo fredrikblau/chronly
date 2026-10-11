@@ -9,6 +9,7 @@ import {
   localDayKey,
   PomodoroStatsStore,
   RecordStore,
+  SettingsStore,
 } from '../lib/core/storage'
 import {
   cleanupRemovedRecords,
@@ -29,10 +30,11 @@ import {
 // Audio needs a real AudioContext/offscreen document; the unit under test here
 // is the reconciliation loop's handling of it, not playback itself.
 vi.mock('../lib/core/audio', () => ({
+  FADE_IN_MS: 30_000,
   playAlarmSound: vi.fn(async () => {}),
   stopAlarmSound: vi.fn(async () => {}),
   isSoundStatusMessage: vi.fn(() => false),
-  localSoundStatus: vi.fn(() => ({ active: [], audible: [] })),
+  localSoundStatus: vi.fn(() => ({ active: [], audible: [], levels: {} })),
 }))
 
 const NOW = 1_770_000_000_000
@@ -174,6 +176,31 @@ describe('reconcileDueRecords', () => {
     expect(ids).toContain(`chronly-alarm-${first.id}`)
     expect(ids).toContain(`chronly-alarm-${second.id}`)
   }, 2000)
+
+  it('fades an alarm in when gentle wake is on, but never a timer', async () => {
+    await new SettingsStore(createExtensionStorageBackend('sync')).update({ gentleWake: true })
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    const countdown = createCountdown('Tea', 60_000, NOW - 60_000)
+    await store.upsert(alarm)
+    await store.upsert(countdown)
+
+    await reconcileDueRecords(store, NOW + 1)
+
+    const fadeFor = (id: string) => vi.mocked(playAlarmSound).mock.calls.find((call) => call[2] === id)?.[5]
+    expect(fadeFor(alarm.id)).toBe(30_000)
+    expect(fadeFor(countdown.id)).toBe(0)
+  })
+
+  it('starts alarms at full volume while gentle wake is off', async () => {
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+
+    await reconcileDueRecords(store, NOW + 1)
+
+    expect(vi.mocked(playAlarmSound).mock.calls[0]?.[5]).toBe(0)
+  })
 
   it('marks a record fired even when its sound rejects', async () => {
     // Awaiting the sound would throw before the record was advanced, leaving it
@@ -471,6 +498,21 @@ describe('ringing alerts', () => {
     expect(stopAlarmSound).toHaveBeenCalledWith(alarm.id)
     expect(await fakeBrowser.notifications.getAll()).toEqual({})
     await vi.waitFor(async () => expect(await alerts().getAll()).toEqual([]))
+  })
+
+  it('snoozes for the length chosen in settings, and says so on the button', async () => {
+    await new SettingsStore(createExtensionStorageBackend('sync')).update({ snoozeMinutes: 10 })
+    const store = newStore()
+    const alarm = createAlarm('Wake up', NOW, NOW)
+    await store.upsert(alarm)
+    const create = vi.spyOn(fakeBrowser.notifications, 'create')
+    create.mockClear()
+
+    await reconcileDueRecords(store, NOW + 1)
+    await handleAlertAction(store, alarm.id, 'snooze', NOW + 2000)
+
+    expect(create.mock.calls[0]?.[1]).toMatchObject({ buttons: [{ title: 'Snooze 10 min' }, { title: 'Dismiss' }] })
+    expect(await store.get(alarm.id)).toMatchObject({ snoozedUntil: NOW + 2000 + 10 * 60_000 })
   })
 
   it('pauses the next Pomodoro phase from the popup banner', async () => {

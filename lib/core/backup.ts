@@ -49,6 +49,8 @@ function readSettings(value: unknown): Settings {
     fontScale: pick('fontScale', (v) => isFiniteNumber(v) && v >= 0.5 && v <= 2),
     clockContrast: pick('clockContrast', (v) => isFiniteNumber(v) && v >= 0.5 && v <= 2),
     reducedMotion: pick('reducedMotion', (v) => typeof v === 'boolean'),
+    snoozeMinutes: pick('snoozeMinutes', (v) => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 60),
+    gentleWake: pick('gentleWake', (v) => typeof v === 'boolean'),
     background: {
       type: background.type === 'gradient' ? 'gradient' : 'solid',
       value: typeof background.value === 'string' ? background.value : DEFAULT_SETTINGS.background.value,

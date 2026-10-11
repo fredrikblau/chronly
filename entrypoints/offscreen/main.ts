@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser'
 import {
+  fadeIn,
   isPlaySoundMessage,
   isSafeAudioDataUrl,
   isSoundStatusMessage,
@@ -17,6 +18,7 @@ browser.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: 
     sendResponse({
       active: [...active.keys()],
       audible: [...audioElements].filter(([, audio]) => !audio.paused).map(([id]) => id),
+      levels: Object.fromEntries([...audioElements].map(([id, audio]) => [id, audio.volume])),
     })
     return
   }
@@ -41,7 +43,7 @@ browser.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: 
             : resolveSoundPreset(message.soundId).sourceUrl
         if (audioUrl) {
           const audio = new Audio(audioUrl)
-          audio.volume = Math.min(Math.max(message.volume, 0), 1)
+          const stopFade = fadeIn(audio, Math.min(Math.max(message.volume, 0), 1), message.fadeInMs ?? 0)
           audio.loop = message.loop
           audioElements.set(message.playbackId, audio)
           try {
@@ -56,6 +58,8 @@ browser.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: 
             audio.pause()
             audioElements.delete(message.playbackId)
             await playPresetLocally(message.soundId, message.volume)
+          } finally {
+            stopFade()
           }
         } else {
           await playPresetLocally(message.soundId, message.volume)

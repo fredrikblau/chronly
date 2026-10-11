@@ -119,7 +119,7 @@ function ext(driver, body, ...args) {
 const soundStatus = (driver) =>
   ext(
     driver,
-    `return (await browser.runtime.sendMessage({ target: 'offscreen', type: 'sound-status' })) ?? { active: [], audible: [] }`,
+    `return (await browser.runtime.sendMessage({ target: 'offscreen', type: 'sound-status' })) ?? { active: [], audible: [], levels: {} }`,
   )
 
 const readRecords = async (driver) =>
@@ -241,6 +241,35 @@ describe('Chronly in Firefox', () => {
     const [snoozed] = await readRecords(driver)
     assert.equal(snoozed.notified, false)
     assert.ok(snoozed.snoozedUntil > Date.now() + 4 * 60_000)
+  })
+
+  test('gentle wake starts an alarm quietly and raises its volume', async () => {
+    const settings = await openTab(driver, 'settings')
+    await settings.findElement(By.css('input[aria-label="Gentle wake"]')).click()
+    await waitFor(
+      driver,
+      async () =>
+        (await ext(driver, `return (await browser.storage.sync.get('settings')).settings?.gentleWake`)) === true,
+      'gentle wake to save',
+    )
+
+    const now = Date.now()
+    const alarm = {
+      ...baseRecord('alarm', 'Firefox sunrise', now),
+      volume: 0.8,
+      targetTimestamp: now + 2000,
+      recurrence: null,
+      fullScreenTakeover: false,
+      snoozedUntil: null,
+      enabled: true,
+    }
+    await seedRecord(driver, alarm)
+    await waitFor(driver, async () => (await soundStatus(driver)).audible.includes(alarm.id), 'the ring to sound')
+
+    const level = async () => (await soundStatus(driver)).levels[alarm.id] ?? 0
+    const first = await level()
+    assert.ok(first < 0.3, `started at ${first}, not quietly`)
+    await waitFor(driver, async () => (await level()) > first + 0.05, 'the volume to rise', 10_000)
   })
 
   test('a Pomodoro focus phase advances on its own and is counted', async () => {

@@ -58,8 +58,13 @@ store or label it stable.
 - [ ] Update `CHANGELOG.md`: move the `[Unreleased]` entries under a new
       version heading with today's date.
 - [ ] Bump `version` in `package.json` to match that heading.
-- [ ] Tag the release and attach the zipped builds produced by `npm run zip`
-      and `npm run zip:firefox` (both land in `.output/`).
+- [ ] Push a tag for that version from `main`, for example
+      `git push origin v0.2.0` after `git tag v0.2.0` (use `v0.2.0-rc.1` for
+      a prerelease). The [Release workflow](.github/workflows/release.yml)
+      re-runs the full CI suite, checks the tag matches `package.json`, and
+      publishes the Chrome, Firefox, and source zips as a GitHub release with
+      generated notes. A tag with a `-` suffix is marked as a prerelease. Edit
+      the notes afterwards to name any manual check still outstanding.
 
 `npm run lint:firefox` checks the Firefox artifact, and `npm run test:firefox`
 (also in CI) loads it into real Firefox and drives the popup: alarms, a timer

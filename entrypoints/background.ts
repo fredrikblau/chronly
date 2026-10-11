@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser'
 import { isAlertActionMessage } from '../lib/core/alerts'
-import { isSoundStatusMessage, localSoundStatus, playAlarmSound, stopAlarmSound } from '../lib/core/audio'
+import { FADE_IN_MS, isSoundStatusMessage, localSoundStatus, playAlarmSound, stopAlarmSound } from '../lib/core/audio'
 import {
   buildNotificationSpec,
   NOTIFICATION_ACTIONS,
@@ -27,7 +27,7 @@ import {
   SettingsStore,
 } from '../lib/core/storage'
 import { toolbarTitle } from '../lib/core/toolbar'
-import type { SchedulableRecord } from '../lib/core/types'
+import { DEFAULT_SETTINGS, type SchedulableRecord, type Settings } from '../lib/core/types'
 
 export const TICK_ALARM_NAME = 'tick'
 export const TICK_PERIOD_MINUTES = 0.5
@@ -45,6 +45,14 @@ function recordAlarmName(id: string): string {
 
 function alertStore(): ActiveAlertStore {
   return new ActiveAlertStore(createExtensionStorageBackend('session'))
+}
+
+/**
+ * Preferences that shape an alert. A failed read falls back to the defaults:
+ * settings must never be the reason an alarm does not ring.
+ */
+function readSettings(): Promise<Settings> {
+  return new SettingsStore(createExtensionStorageBackend('sync')).get().catch(() => DEFAULT_SETTINGS)
 }
 
 /** Switched off since the last write — a ringing alarm stops when it is. */
@@ -117,14 +125,19 @@ export async function ensureTickAlarm(): Promise<void> {
  * silence the sound when the notification itself is blocked or fails.
  */
 async function fireRecord(record: SchedulableRecord, now: number): Promise<void> {
-  const customSound = await new CustomSoundStore(createExtensionStorageBackend('local')).getAll()
+  const [customSound, { snoozeMinutes, gentleWake }] = await Promise.all([
+    new CustomSoundStore(createExtensionStorageBackend('local')).getAll(),
+    readSettings(),
+  ])
   const imported = customSound.find((sound) => sound.id === record.soundId)
+  // Gentle wake is for alarms; timers and Pomodoro phase changes stay prompt.
+  const fadeInMs = gentleWake && record.kind === 'alarm' ? FADE_IN_MS : 0
   observeBackgroundTask(
-    playAlarmSound(record.soundId, record.volume, record.id, true, imported?.dataUrl),
+    playAlarmSound(record.soundId, record.volume, record.id, true, imported?.dataUrl, fadeInMs),
     'could not play the alarm sound',
     record.id,
   )
-  const spec = buildNotificationSpec(record)
+  const spec = buildNotificationSpec(record, { snoozeMinutes })
   observeBackgroundTask(
     alertStore().add({
       recordId: record.id,
@@ -190,7 +203,8 @@ export async function handleAlertAction(
 
   try {
     if (record?.kind === 'alarm' && action === 'snooze') {
-      await store.upsert(snoozeAlarm(record, now))
+      const { snoozeMinutes } = await readSettings()
+      await store.upsert(snoozeAlarm(record, now, snoozeMinutes * 60_000))
     } else if (record?.kind === 'pomodoro' && action === 'pause') {
       // Pause the phase that already auto-started.
       await store.upsert(pauseRecord(record, now))
@@ -289,11 +303,7 @@ export async function handleNotificationClosed(
 export async function refreshToolbar(store: RecordStore, now: number): Promise<void> {
   const action = browser.action
   if (!action?.setBadgeText) return
-  const [alerts, records, settings] = await Promise.all([
-    alertStore().getAll(),
-    store.getAll(),
-    new SettingsStore(createExtensionStorageBackend('sync')).get(),
-  ])
+  const [alerts, records, settings] = await Promise.all([alertStore().getAll(), store.getAll(), readSettings()])
   await action.setBadgeText({ text: alerts.length ? '!' : '' })
   if (alerts.length) await action.setBadgeBackgroundColor({ color: '#e5484d' })
   await action.setTitle({ title: toolbarTitle(alerts, records, now, { hour12: settings.hour12 }) })

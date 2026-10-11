@@ -29,6 +29,10 @@ for (const [name, manifest] of Object.entries({ chrome, firefox })) {
   assert(manifest.permissions.includes('alarms'), `${name} must request alarms permission`)
   assert(manifest.permissions.includes('notifications'), `${name} must request notifications permission`)
   assert(manifest.permissions.includes('storage'), `${name} must request storage permission`)
+  assert(
+    manifest.commands?._execute_action?.suggested_key?.default === 'Alt+Shift+K',
+    `${name} must offer the open-popup keyboard shortcut`,
+  )
 }
 
 assert(chrome.permissions.includes('offscreen'), 'Chrome must request offscreen permission')

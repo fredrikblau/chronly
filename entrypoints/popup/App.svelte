@@ -1,6 +1,7 @@
 <script lang="ts">
   import './theme.css'
   import AboutPanel from '../../components/AboutPanel.svelte'
+  import AlertSettings from '../../components/AlertSettings.svelte'
   import AlarmsPanel from '../../components/AlarmsPanel.svelte'
   import BackgroundPicker from '../../components/BackgroundPicker.svelte'
   import CountdownPanel from '../../components/CountdownPanel.svelte'
@@ -10,11 +11,14 @@
   import RingingBanner from '../../components/RingingBanner.svelte'
   import StopwatchPanel from '../../components/StopwatchPanel.svelte'
   import ThemePicker from '../../components/ThemePicker.svelte'
+  import Toast from '../../components/Toast.svelte'
   import WorldClockPanel from '../../components/WorldClockPanel.svelte'
   import { createNowStore } from '../../lib/ui/now'
   import { resolveCanvas, SURFACE_BG, surfaceOf } from '../../lib/ui/palette'
   import { settings } from '../../lib/ui/settings'
+  import { isTyping } from '../../lib/ui/keyboard'
   import { beginStorageLoad, storageLoadState } from '../../lib/ui/storageLoad'
+  import { toast } from '../../lib/ui/toast'
 
   const now = createNowStore()
   beginStorageLoad()
@@ -115,14 +119,6 @@
     selectTab(TABS[(index + delta + TABS.length) % TABS.length].id, true)
   }
 
-  function isTyping(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false
-    if (target.isContentEditable) return true
-    if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
-    if (!(target instanceof HTMLInputElement)) return false
-    return !['checkbox', 'radio', 'button', 'range', 'color', 'submit'].includes(target.type)
-  }
-
   /** 1–7 jump straight to a tab, the way numbered tabs work in a browser. */
   function onWindowKeydown(event: KeyboardEvent) {
     if (event.altKey || event.ctrlKey || event.metaKey || event.repeat || isTyping(event.target)) return
@@ -160,7 +156,7 @@
       disabled={$storageLoadState === 'loading'}
       aria-busy={$storageLoadState === 'loading'}
     >
-      <nav class="tabs" role="tablist" aria-label="Chronly sections">
+      <div class="tabs" role="tablist" aria-label="Chronly sections">
         {#each TABS as tab, index (tab.id)}
           <button
             id="tab-{tab.id}"
@@ -180,7 +176,7 @@
             <span class="tab-label">{tab.label}</span>
           </button>
         {/each}
-      </nav>
+      </div>
 
       <RingingBanner />
 
@@ -190,7 +186,7 @@
         last subscriber goes away, so unmounting on every tab switch would leave
         a remounted panel briefly showing stale records.
       -->
-      <main>
+      <main class:has-toast={$toast !== null}>
         <div id="panel-clock" role="tabpanel" aria-labelledby="tab-clock" hidden={activeTab !== 'clock'}>
           <OverviewPanel now={$now} onNavigate={(tab) => selectTab(tab)} />
         </div>
@@ -223,10 +219,12 @@
           class="stacked"
         >
           <ThemePicker />
+          <AlertSettings />
           <BackgroundPicker />
           <AboutPanel />
         </div>
       </main>
+      <Toast />
     </fieldset>
   {/if}
 </div>
@@ -264,6 +262,7 @@
   }
 
   .app-content {
+    position: relative;
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -350,6 +349,11 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
+  }
+
+  /* Room to scroll the last control clear of the message at the bottom. */
+  main.has-toast {
+    padding-bottom: 4.5rem;
   }
 
   /* Must beat any display rule on a panel wrapper, which would otherwise win by

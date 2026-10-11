@@ -30,6 +30,11 @@ test('starts, pauses, resumes, extends, and deletes a timer', async ({ context, 
   await row.getByRole('button', { name: 'Delete Pasta' }).click()
   await expect(timers.getByText('No timers running')).toBeVisible()
   await expect.poll(() => recordAlarmNames(page)).toHaveLength(0)
+
+  // Deleting is instant, so it can be undone: the timer returns, still counting.
+  await page.getByRole('status').filter({ hasText: 'Deleted “Pasta”' }).getByRole('button', { name: 'Undo' }).click()
+  await expect(row.getByRole('timer')).toHaveText(/^1[01]:\d\d$/)
+  await expect.poll(() => recordAlarmNames(page)).toHaveLength(1)
 })
 
 test('runs several timers at once', async ({ context, extensionId }) => {

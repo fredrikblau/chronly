@@ -5,6 +5,36 @@ import { test as base, chromium, type BrowserContext } from '@playwright/test'
 // `import.meta.url` gets the same answer using only standard URL APIs.
 const EXTENSION_PATH = decodeURIComponent(new URL('../.output/chrome-mv3', import.meta.url).pathname)
 
+/**
+ * The id Chromium gave the unpacked extension. Usually read off the background
+ * service worker's URL, but Playwright occasionally misses a worker that starts
+ * while the browser is still launching. Then ask chrome://extensions, which
+ * lists installed extensions whether or not their worker has been seen.
+ */
+export async function extensionIdOf(context: BrowserContext): Promise<string> {
+  const worker =
+    context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker', { timeout: 5_000 }).catch(() => null))
+  // chrome-extension://<id>/background.js — the id is the host segment.
+  if (worker) return new URL(worker.url()).host
+
+  const page = await context.newPage()
+  try {
+    await page.goto('chrome://extensions')
+    const id = await page.evaluate(async () => {
+      const api = (globalThis as unknown as DeveloperPrivateHost).chrome.developerPrivate
+      return (await api.getExtensionsInfo()).find(({ name }) => name === 'Chronly')?.id
+    })
+    if (!id) throw new Error('Chronly is not installed in this browser profile')
+    return id
+  } finally {
+    await page.close()
+  }
+}
+
+interface DeveloperPrivateHost {
+  chrome: { developerPrivate: { getExtensionsInfo(): Promise<Array<{ id: string; name: string }>> } }
+}
+
 export const test = base.extend<{ context: BrowserContext; extensionId: string }>({
   // eslint-disable-next-line no-empty-pattern -- Playwright requires the destructured-args form to detect fixture dependencies.
   context: async ({}, use) => {
@@ -24,11 +54,6 @@ export const test = base.extend<{ context: BrowserContext; extensionId: string }
   },
 
   extensionId: async ({ context }, use) => {
-    // The worker may not have spun up yet on a cold profile.
-    const background = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
-    // chrome-extension://<id>/background.js — the id is the host segment.
-    const id = new URL(background.url()).host
-    if (!id) throw new Error(`Could not read an extension id from ${background.url()}`)
-    await use(id)
+    await use(await extensionIdOf(context))
   },
 })

@@ -1,4 +1,5 @@
 import { chromium, expect, test, type Page } from '@playwright/test'
+import { extensionIdOf } from '../../e2e/fixtures'
 
 const EXTENSION_PATH = decodeURIComponent(new URL('../../.output/chrome-mv3', import.meta.url).pathname)
 const OUT = decodeURIComponent(new URL('../../docs/assets/', import.meta.url).pathname)
@@ -34,8 +35,7 @@ test('capture README and store screenshots', async () => {
     viewport: { width: 460, height: 600 },
     args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],
   })
-  const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
-  const extensionId = new URL(worker.url()).host
+  const extensionId = await extensionIdOf(context)
 
   const page = await context.newPage()
   // setFixedTime freezes Date while leaving timers running, which Playwright's

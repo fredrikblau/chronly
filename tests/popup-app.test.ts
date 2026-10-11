@@ -1,7 +1,8 @@
 import { fakeBrowser } from '@webext-core/fake-browser'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createExtensionStorageBackend, SettingsStore } from '../lib/core/storage'
+import { createAlarm } from '../lib/core/scheduler'
+import { createExtensionStorageBackend, RecordStore, SettingsStore } from '../lib/core/storage'
 import type { Settings } from '../lib/core/types'
 import App from '../entrypoints/popup/App.svelte'
 
@@ -89,6 +90,40 @@ describe('popup App', () => {
     render(App)
 
     expect(screen.getByRole('tab', { name: 'World' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('undoes a deleted alarm from the message at the bottom', async () => {
+    const store = new RecordStore(createExtensionStorageBackend('local'))
+    const alarm = createAlarm('Undo me', Date.now() + 3_600_000, Date.now())
+    await store.upsert(alarm)
+    render(App)
+    await fireEvent.click(screen.getByRole('tab', { name: 'Alarms' }))
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Delete alarm Undo me' }))
+    await waitFor(async () => expect(await store.getAll()).toEqual([]))
+    expect(await screen.findByText('Deleted “Undo me”')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(async () => expect(await store.getAll()).toEqual([alarm]))
+    expect(await screen.findByRole('button', { name: 'Delete alarm Undo me' })).toBeInTheDocument()
+  })
+
+  it('undoes a delete with Ctrl+Z, but leaves Ctrl+Z in a text field alone', async () => {
+    const store = new RecordStore(createExtensionStorageBackend('local'))
+    const alarm = createAlarm('Keyboard undo', Date.now() + 3_600_000, Date.now())
+    await store.upsert(alarm)
+    render(App)
+    await fireEvent.click(screen.getByRole('tab', { name: 'Alarms' }))
+    await fireEvent.click(await screen.findByRole('button', { name: 'Delete alarm Keyboard undo' }))
+    await waitFor(async () => expect(await store.getAll()).toEqual([]))
+    expect(await screen.findByText('Deleted “Keyboard undo”')).toBeInTheDocument()
+
+    await fireEvent.keyDown(document.getElementById('alarm-label')!, { key: 'z', ctrlKey: true })
+    expect(await store.getAll()).toEqual([])
+
+    await fireEvent.keyDown(document.body, { key: 'z', ctrlKey: true })
+    await waitFor(async () => expect(await store.getAll()).toEqual([alarm]))
   })
 
   it('keeps inactive panels mounted so their storage subscriptions stay live', async () => {
